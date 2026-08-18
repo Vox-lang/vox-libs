@@ -11,6 +11,14 @@ Source0:        %{url}/archive/v%{version}/vox-libs-%{version}.tar.gz
 # here — the inverse of the vox package, where nasm/binutils are runtime
 # Requires because vox only shells out to them for a user's program. vox is
 # published in this same Copr project, so it is present in the buildroot.
+#
+# x86_64 only, and honestly so: vox emits x86_64 NASM and links with the
+# native ld, so on any other architecture the build cannot produce a
+# working .so. The compiler package itself is portable Rust and builds
+# everywhere; the programs it compiles are not. Declaring it here turns 28
+# guaranteed chroot failures (ppc64le, s390x, i386) into skips.
+ExclusiveArch:  x86_64
+
 BuildRequires:  make
 BuildRequires:  vox
 BuildRequires:  nasm
