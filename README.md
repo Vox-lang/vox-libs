@@ -1,5 +1,12 @@
 # vox-libs
 
+![Open issues](https://img.shields.io/github/issues/Vox-lang/vox-libs?style=flat-square)
+![Repo size](https://img.shields.io/github/repo-size/Vox-lang/vox-libs?style=flat-square)
+![Last commit](https://img.shields.io/github/last-commit/Vox-lang/vox-libs?style=flat-square)
+![GPLv3 license](https://img.shields.io/badge/License-GPLv3-blue.svg)
+[![Copr build status](https://copr.fedorainfracloud.org/coprs/vox-lang/Vox/package/vox-libs/status_image/last_build.png)](https://copr.fedorainfracloud.org/coprs/vox-lang/Vox/package/vox-libs/)
+[![crates.io](https://img.shields.io/crates/v/vox-libs?style=flat-square)](https://crates.io/crates/vox-libs)
+
 Shared libraries for [Vox](https://github.com/Vox-lang/vox), written in Vox.
 
 **Vox has no standard library, and that is deliberate.** The compiler
