@@ -1,4 +1,4 @@
-SHELL := /bin/bash
+SHELL := /bin/sh
 
 # Install layout follows the C model, because a Vox library is shaped like a C
 # one: an interface you compile against and an implementation you link against.
@@ -11,6 +11,12 @@ PREFIX  ?= /usr
 DESTDIR ?=
 INCDIR  := $(DESTDIR)$(PREFIX)/include/vox
 LIBDIR  := $(DESTDIR)$(PREFIX)/lib64
+
+# Where the .so will live once installed, as the running system will see it:
+# LIBDIR with any staging prefix stripped off. Recorded into each .lib (see
+# the install target). Derived rather than hardcoded so that overriding LIBDIR
+# -- as the Nix build does, to $out/lib -- keeps the recorded path truthful.
+RECORDED_LIBDIR := $(patsubst $(DESTDIR)%,%,$(LIBDIR))
 
 VOX ?= vox
 # The compiler must be told where its own coreasm lives, or an installed copy
@@ -35,10 +41,20 @@ $(LIBS):
 	@mkdir -p $(BUILD)
 	$(VOX) $@/$@.vox --shared -o $(BUILD)/lib$@.so
 
+# A .lib records where its .so was when the compiler emitted it, as a path
+# relative to the .lib itself ("./libfoo.so"). Installing splits the pair --
+# interface into $(INCDIR), implementation into $(LIBDIR) -- so that relative
+# path stops resolving and the installed library is unusable without a manual
+# --lib-path. Rewrite Location to the absolute installed path as we copy, the
+# way a .pc file gets its prefix substituted at install time. PREFIX-relative,
+# and DESTDIR is deliberately excluded from the recorded path: staging is a
+# build-time detail, not where the file will live.
 install: build
 	install -d "$(INCDIR)" "$(LIBDIR)"
 	for lib in $(LIBS); do \
-	    install -m 0644 "$(BUILD)/lib$$lib.lib" "$(INCDIR)/$$lib.lib"; \
+	    sed 's|^Location ".*"\.$$|Location "$(RECORDED_LIBDIR)/lib'"$$lib"'.so".|' \
+	        "$(BUILD)/lib$$lib.lib" > "$(BUILD)/$$lib.lib.installed"; \
+	    install -m 0644 "$(BUILD)/$$lib.lib.installed" "$(INCDIR)/$$lib.lib"; \
 	    install -m 0755 "$(BUILD)/lib$$lib.so"  "$(LIBDIR)/lib$$lib.so"; \
 	done
 
