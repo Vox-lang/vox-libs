@@ -1,17 +1,94 @@
-(Decode the two kinds of death a child process can suffer.
+(The four ways to read a wait status, and the two kinds of death a child
+ process can suffer.
 
- The raw status word comes from `the reaped status` after a reap; these
- two literals are what the kernel would have written for a program that
- exited with code 7, and for one killed by signal 11.)
+ A wait status is one packed number: the low seven bits hold the signal that
+ killed the process and are zero when it exited on its own, and the exit code
+ lives in the next eight bits up. Only one of those halves means anything for
+ any one status, which is what crashed and 'exited normally' are for - ask
+ which death it was, then read the half that applies.
+
+ The literal statuses below are what the kernel would have written. The last
+ two sections check that claim against real forked children, so the demo
+ tests the decoding against the kernel rather than against itself.
+
+ This demo is the library's test - its output is compared byte for byte
+ against process_demo.expected. A boolean prints as 1 or 0.
+
+   vox process.vox --shared -o libprocess.so
+   vox process_demo.vox --link process -o process_demo
+   ./process_demo)
 
 see process version "0.1" from "./libprocess.lib".
 
+(A program that ran to the end and returned 7. The signal half is zero, so
+ the exit code is the half worth reading.)
 a number called 'a clean exit' is 1792.
 Print "exit code: {'exit code of' of 'a clean exit'}".
+Print "signal: {'signal of' of 'a clean exit'}".
 Print "crashed: {crashed of 'a clean exit'}".
 Print "exited normally: {'exited normally' of 'a clean exit'}".
 
+(Success is zero all the way through, which is why "did it exit normally" has
+ to be asked separately from "is the exit code zero".)
+a number called 'a successful run' is 0.
+Print "exit code: {'exit code of' of 'a successful run'}".
+Print "signal: {'signal of' of 'a successful run'}".
+Print "crashed: {crashed of 'a successful run'}".
+Print "exited normally: {'exited normally' of 'a successful run'}".
+
+(The largest exit code a program can return, 255, sitting in the high byte.)
+a number called 'the largest exit code' is 65280.
+Print "exit code: {'exit code of' of 'the largest exit code'}".
+Print "exited normally: {'exited normally' of 'the largest exit code'}".
+
+(Killed by signal 11, a segmentation fault. The exit code half is meaningless
+ now - it reads as 0 whatever the program would have returned.)
 a number called 'a segfault' is 11.
+Print "exit code: {'exit code of' of 'a segfault'}".
 Print "signal: {'signal of' of 'a segfault'}".
 Print "crashed: {crashed of 'a segfault'}".
 Print "exited normally: {'exited normally' of 'a segfault'}".
+
+(The same death with a core dumped, which sets bit 128 alongside the signal.
+ 'signal of' masks that bit off and still answers 11, not 139.)
+a number called 'a segfault with a core dumped' is 139.
+Print "signal: {'signal of' of 'a segfault with a core dumped'}".
+Print "crashed: {crashed of 'a segfault with a core dumped'}".
+Print "exited normally: {'exited normally' of 'a segfault with a core dumped'}".
+
+(Before any successful reap, `the reaped status` is -1 - a sentinel no real
+ status can take. Decode it anyway and you get an answer, and the answer is
+ nonsense: 127 is not a signal any child was killed by. Test for -1 before
+ handing a status to any of these.)
+a number called 'never reaped' is -1.
+Print "exit code: {'exit code of' of 'never reaped'}".
+Print "signal: {'signal of' of 'never reaped'}".
+Print "crashed: {crashed of 'never reaped'}".
+Print "exited normally: {'exited normally' of 'never reaped'}".
+
+(A real child now, exiting with a code of its own choosing.)
+a number called 'the well behaved child' is fork the process.
+If 'the well behaved child' is 0 then,
+    Exit 7.
+If 'the well behaved child' is greater than 0 then,
+    a number called 'the reaped child' is reap any child process,
+    a number called 'how the child ended' is the reaped status,
+    Print "a real exit code: {'exit code of' of 'how the child ended'}",
+    Print "a real signal: {'signal of' of 'how the child ended'}",
+    Print "really crashed: {crashed of 'how the child ended'}",
+    Print "really exited normally: {'exited normally' of 'how the child ended'}".
+
+(And a real child killed outright. SIGKILL cannot be caught or ignored, so the
+ child dies wherever it has got to and the status is the same on every run.)
+a number called 'the doomed child' is fork the process.
+If 'the doomed child' is 0 then,
+    Wait 30 seconds,
+    Exit 0.
+If 'the doomed child' is greater than 0 then,
+    Send signal 9 to process 'the doomed child',
+    a number called 'the reaped corpse' is reap any child process,
+    a number called 'how the child died' is the reaped status,
+    Print "a real exit code: {'exit code of' of 'how the child died'}",
+    Print "a real signal: {'signal of' of 'how the child died'}",
+    Print "really crashed: {crashed of 'how the child died'}",
+    Print "really exited normally: {'exited normally' of 'how the child died'}".

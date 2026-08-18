@@ -1,7 +1,20 @@
-[spacious]
+1
+1
+1
+1
+0
+0
+5
+0
+1
 5
 [world]
 [hello]
+[h]
+[o]
+[]
+[]
+[]
 11
 2
 0
@@ -12,17 +25,54 @@
 0
 1
 0
+1
 0
+1
+0
+1
+1
+0
+1
+0
+0
+1
+1
+1
 [MIXED CASE 123!]
 [mixed case 123!]
+[CAFé]
+[]
+[]
+[spacious]
+[two  words]
+[x]
+[]
+[]
 [    42]
 [42    ]
+[hello]
+[hello]
+[    ]
+[hi]
 [ababab]
+[solo]
+[]
+[]
+[]
+13
 []
 3
 ["one", "two", "three"]
+["one", "two", "three"]
+1
+0
+0
 [one, two, three]
+[onetwothree]
+[solo]
+[]
 <one>
 <two>
 <three>
 [SHOUT]
+[    SHOUT]
