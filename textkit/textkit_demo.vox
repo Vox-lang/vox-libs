@@ -1,55 +1,185 @@
-(Exercises every textkit export. Brackets make whitespace visible.
+(Every textkit export, called once the way you would use it and again with
+ the inputs that break text code: nothing at all, a single byte, a position
+ on the boundary, a position past the end, a needle that is not there, a
+ pad narrower than the text it pads.
+
+ This demo is the library's test - its output is compared byte for byte
+ against textkit_demo.expected - so it is also the honest documentation of
+ what each export does at the edges.
+
+ Brackets make leading and trailing spaces visible. A boolean prints as 1
+ or 0.
 
    vox textkit.vox --shared -o libtextkit.so
-   vox textkit_demo.vox -o textkit_demo
+   vox textkit_demo.vox --link textkit -o textkit_demo
    ./textkit_demo)
 
 see textkit version "0.1" from "./libtextkit.lib".
 
-a text called t1 is trim of "   spacious   ".
-Print "[{t1}]".
+('is whitespace' judges a single byte and answers 1 or 0. Space, tab,
+ newline, and carriage return count; a letter and a zero byte do not.)
+Print 'is whitespace' of 32.
+Print 'is whitespace' of 9.
+Print 'is whitespace' of 10.
+Print 'is whitespace' of 13.
+Print 'is whitespace' of 65.
+Print 'is whitespace' of 0.
 
+(Length is counted in bytes, not characters - the accented letter in "cafe"
+ spelt properly takes two of them.)
 Print 'text length' of "hello".
+Print 'text length' of "".
+Print 'text length' of "x".
+Print 'text length' of "café".
 
-a text called t2 is slice of "hello world" and 7 and 11.
-Print "[{t2}]".
-a text called t3 is slice of "hello" and -3 and 99.
-Print "[{t3}]".
+(slice takes bytes low through high, both ends inclusive, counting from 1.
+ It clamps rather than complains, so a position outside the text simply
+ yields whatever part of the range does lie inside it.)
+a text called world is slice of "hello world" and 7 and 11.
+Print "[{world}]".
+a text called 'the whole of it' is slice of "hello" and -3 and 99.
+Print "[{'the whole of it'}]".
+a text called 'the first letter' is slice of "hello" and 1 and 1.
+Print "[{'the first letter'}]".
+a text called 'the last letter' is slice of "hello" and 5 and 5.
+Print "[{'the last letter'}]".
+a text called 'one byte past the end' is slice of "hello" and 6 and 6.
+Print "[{'one byte past the end'}]".
+a text called 'a backwards range' is slice of "hello" and 4 and 2.
+Print "[{'a backwards range'}]".
+a text called 'a slice of nothing' is slice of "" and 1 and 5.
+Print "[{'a slice of nothing'}]".
 
+('index of' gives the 1-based position of the first match, or 0 when the
+ needle is absent. An empty needle is found immediately, at position 1.)
 Print 'index of' of "the quick brown fox" and "brown".
 Print 'index of' of "aaab" and "aab".
 Print 'index of' of "hello" and "zzz".
 Print 'index of' of "abc" and "".
+Print 'index of' of "" and "".
+Print 'index of' of "" and "anything".
+Print 'index of' of "aaa" and "aaa".
+Print 'index of' of "aaa" and "aaaa".
 
+(contains, 'starts with', and 'ends with' are the same search asked three
+ different questions.)
 Print contains of "haystack" and "sta".
 Print contains of "haystack" and "xyz".
+Print contains of "" and "".
+Print contains of "" and "needle".
+
 Print 'starts with' of "foobar" and "foo".
 Print 'starts with' of "foobar" and "bar".
+Print 'starts with' of "foobar" and "foobar".
+Print 'starts with' of "foobar" and "".
+Print 'starts with' of "" and "foo".
+
 Print 'ends with' of "foobar" and "bar".
 Print 'ends with' of "foobar" and "foo".
 Print 'ends with' of "bar" and "foobar".
+Print 'ends with' of "foobar" and "foobar".
+Print 'ends with' of "foobar" and "".
+Print 'ends with' of "" and "".
 
-a text called t4 is uppercase of "Mixed Case 123!".
-Print "[{t4}]".
-a text called t5 is lowercase of "Mixed Case 123!".
-Print "[{t5}]".
+(Case folding is ASCII only. Digits, punctuation, and the bytes of an
+ accented letter all pass through untouched.)
+a text called shouted is uppercase of "Mixed Case 123!".
+Print "[{shouted}]".
+a text called murmured is lowercase of "Mixed Case 123!".
+Print "[{murmured}]".
+a text called 'the accented word shouted' is uppercase of "café".
+Print "[{'the accented word shouted'}]".
+a text called 'nothing shouted' is uppercase of "".
+Print "[{'nothing shouted'}]".
+a text called 'nothing murmured' is lowercase of "".
+Print "[{'nothing murmured'}]".
 
-a text called t6 is 'pad left' of "42" and 6.
-Print "[{t6}]".
-a text called t7 is 'pad right' of "42" and 6.
-Print "[{t7}]".
+(trim takes whitespace off both ends and leaves the middle alone. Text that
+ is nothing but whitespace trims away to nothing.)
+a text called spacious is trim of "   spacious   ".
+Print "[{spacious}]".
+a text called 'the inner spaces survive' is trim of "  two  words  ".
+Print "[{'the inner spaces survive'}]".
+a text called 'a single letter trimmed' is trim of " x ".
+Print "[{'a single letter trimmed'}]".
+a text called 'trimmed away to nothing' is trim of "     ".
+Print "[{'trimmed away to nothing'}]".
+a text called 'nothing to trim' is trim of "".
+Print "[{'nothing to trim'}]".
 
-a text called t8 is 'repeat text' of "ab" and 3.
-Print "[{t8}]".
-a text called t9 is 'repeat text' of "ab" and 0.
-Print "[{t9}]".
+(Padding only ever widens. A width smaller than the text - or a negative
+ one - leaves the text exactly as it was.)
+a text called 'right aligned' is 'pad left' of "42" and 6.
+Print "[{'right aligned'}]".
+a text called 'left aligned' is 'pad right' of "42" and 6.
+Print "[{'left aligned'}]".
+a text called 'too wide to pad' is 'pad left' of "hello" and 3.
+Print "[{'too wide to pad'}]".
+a text called 'already exactly wide enough' is 'pad right' of "hello" and 5.
+Print "[{'already exactly wide enough'}]".
+a text called 'a column of spaces' is 'pad left' of "" and 4.
+Print "[{'a column of spaces'}]".
+a text called 'a negative width' is 'pad right' of "hi" and -1.
+Print "[{'a negative width'}]".
 
+('repeat text' repeats a count of times; zero or fewer produces nothing.)
+a text called 'three times over' is 'repeat text' of "ab" and 3.
+Print "[{'three times over'}]".
+a text called 'said just once' is 'repeat text' of "solo" and 1.
+Print "[{'said just once'}]".
+a text called 'never repeated' is 'repeat text' of "ab" and 0.
+Print "[{'never repeated'}]".
+a text called 'repeated a negative number of times' is 'repeat text' of "ab" and -2.
+Print "[{'repeated a negative number of times'}]".
+a text called 'nothing repeated' is 'repeat text' of "" and 5.
+Print "[{'nothing repeated'}]".
+
+('buffer text' reads a buffer's bytes back as a text, which is how you
+ recover something assembled a byte at a time. Vox has no escape sequences,
+ so the tab and the newline here are written as the bytes 9 and 10.)
+Create a buffer called 'a ragged line'.
+a buffer called 'one byte' is 1 bytes in size.
+append "one" to 'a ragged line'.
+set byte 1 of 'one byte' to 9.
+append 'one byte' to 'a ragged line'.
+append "two" to 'a ragged line'.
+set byte 1 of 'one byte' to 10.
+append 'one byte' to 'a ragged line'.
+append "three" to 'a ragged line'.
+a text called 'the ragged line' is 'buffer text' of 'a ragged line'.
+Print 'text length' of 'the ragged line'.
+Create a buffer called 'an untouched buffer'.
+a text called 'nothing at all' is 'buffer text' of 'an untouched buffer'.
+Print "[{'nothing at all'}]".
+
+('split words' cuts on any run of whitespace - tab and newline as readily as
+ space - and never returns an empty word, however the text is padded.)
 a list called words is 'split words' of "  one two   three ".
 Print words's size.
 Print the words.
-a text called t10 is join of words and ", ".
-Print "[{t10}]".
+a list called 'ragged words' is 'split words' of 'the ragged line'.
+Print the 'ragged words'.
+a list called 'a single word' is 'split words' of "solo".
+Print 'a single word''s size.
+a list called 'no words at all' is 'split words' of "     ".
+Print 'no words at all''s size.
+a list called 'nothing to split' is 'split words' of "".
+Print 'nothing to split''s size.
 
-For each w from words, print "<{w}>".
-a text called loud is uppercase of {trim of "  shout  "}.
-Print "[{loud}]".
+(join puts the separator between each pair of items and never on the ends,
+ so one item comes back alone and no items come back as nothing.)
+a text called 'a tidy list' is join of words and ", ".
+Print "[{'a tidy list'}]".
+a text called 'run together' is join of words and "".
+Print "[{'run together'}]".
+a text called 'one word alone' is join of 'a single word' and ", ".
+Print "[{'one word alone'}]".
+a text called 'nothing to join' is join of 'no words at all' and ", ".
+Print "[{'nothing to join'}]".
+
+(Every export returns an ordinary text or list, so they compose.)
+For each word from words, print "<{word}>".
+a text called 'a tidy heading' is uppercase of {trim of "  shout  "}.
+Print "[{'a tidy heading'}]".
+a text called 'a padded heading' is 'pad left' of 'a tidy heading' and 9.
+Print "[{'a padded heading'}]".

@@ -1,6 +1,29 @@
 exit code: 7
+signal: 0
 crashed: 0
 exited normally: 1
+exit code: 0
+signal: 0
+crashed: 0
+exited normally: 1
+exit code: 255
+exited normally: 1
+exit code: 0
 signal: 11
 crashed: 1
 exited normally: 0
+signal: 11
+crashed: 1
+exited normally: 0
+exit code: 0
+signal: 127
+crashed: 1
+exited normally: 0
+a real exit code: 7
+a real signal: 0
+really crashed: 0
+really exited normally: 1
+a real exit code: 0
+a real signal: 9
+really crashed: 1
+really exited normally: 0
