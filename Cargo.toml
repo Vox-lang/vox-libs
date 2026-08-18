@@ -1,0 +1,29 @@
+# This crate exists as a distribution vehicle: crates.io carries the Vox
+# library sources the same way it carries the vox compiler itself. There is
+# no Rust code to speak of — see src/lib.rs. The version here is
+# authoritative for the whole repo; release.sh mirrors it into
+# vox-libs.spec and flake.nix.
+[package]
+name = "vox-libs"
+version = "0.1.0"
+edition = "2021"
+description = "Shared libraries for the Vox programming language: textkit (text utilities) and process (wait-status decoding), compiled by vox into .so/.lib pairs"
+license = "GPL-3.0-or-later"
+repository = "https://github.com/Vox-lang/vox-libs"
+homepage = "https://github.com/Vox-lang/vox-libs"
+readme = "README.md"
+keywords = ["vox", "libraries"]
+categories = ["development-tools"]
+include = [
+    "src/lib.rs",
+    "textkit/**",
+    "process/**",
+    "Makefile",
+    "README.md",
+    "LICENSE",
+    "CHANGELOG.md",
+    "vox-libs.spec",
+]
+
+[lib]
+path = "src/lib.rs"

@@ -1,0 +1,41 @@
+name: vox-libs - Build + Library tests
+
+on:
+  push:
+    branches: [ "main" ]
+  pull_request:
+    branches: [ "main" ]
+
+permissions:
+  contents: read
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  # The job is named `build` because that is the status-check name the
+  # branch ruleset requires, mirroring the vox repo's own gate.
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install NASM
+        run: sudo apt-get update && sudo apt-get install -y nasm
+
+      - name: Check out the Vox compiler
+        uses: actions/checkout@v4
+        with:
+          repository: Vox-lang/vox
+          path: vox
+
+      - name: Build the Vox compiler
+        working-directory: vox
+        run: cargo build --release
+
+      - name: Build and test the libraries
+        run: |
+          make test \
+            VOX="$GITHUB_WORKSPACE/vox/target/release/vox" \
+            VOX_CORE_PATH="$GITHUB_WORKSPACE/vox/coreasm"
