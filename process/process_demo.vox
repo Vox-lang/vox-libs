@@ -1,0 +1,17 @@
+(Decode the two kinds of death a child process can suffer.
+
+ The raw status word comes from `the reaped status` after a reap; these
+ two literals are what the kernel would have written for a program that
+ exited with code 7, and for one killed by signal 11.)
+
+see process version "0.1" from "./libprocess.lib".
+
+a number called 'a clean exit' is 1792.
+Print "exit code: {'exit code of' of 'a clean exit'}".
+Print "crashed: {crashed of 'a clean exit'}".
+Print "exited normally: {'exited normally' of 'a clean exit'}".
+
+a number called 'a segfault' is 11.
+Print "signal: {'signal of' of 'a segfault'}".
+Print "crashed: {crashed of 'a segfault'}".
+Print "exited normally: {'exited normally' of 'a segfault'}".

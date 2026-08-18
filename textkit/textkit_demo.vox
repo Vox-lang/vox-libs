@@ -1,0 +1,55 @@
+(Exercises every textkit export. Brackets make whitespace visible.
+
+   vox textkit.vox --shared -o libtextkit.so
+   vox textkit_demo.vox -o textkit_demo
+   ./textkit_demo)
+
+see textkit version "0.1" from "./libtextkit.lib".
+
+a text called t1 is trim of "   spacious   ".
+Print "[{t1}]".
+
+Print 'text length' of "hello".
+
+a text called t2 is slice of "hello world" and 7 and 11.
+Print "[{t2}]".
+a text called t3 is slice of "hello" and -3 and 99.
+Print "[{t3}]".
+
+Print 'index of' of "the quick brown fox" and "brown".
+Print 'index of' of "aaab" and "aab".
+Print 'index of' of "hello" and "zzz".
+Print 'index of' of "abc" and "".
+
+Print contains of "haystack" and "sta".
+Print contains of "haystack" and "xyz".
+Print 'starts with' of "foobar" and "foo".
+Print 'starts with' of "foobar" and "bar".
+Print 'ends with' of "foobar" and "bar".
+Print 'ends with' of "foobar" and "foo".
+Print 'ends with' of "bar" and "foobar".
+
+a text called t4 is uppercase of "Mixed Case 123!".
+Print "[{t4}]".
+a text called t5 is lowercase of "Mixed Case 123!".
+Print "[{t5}]".
+
+a text called t6 is 'pad left' of "42" and 6.
+Print "[{t6}]".
+a text called t7 is 'pad right' of "42" and 6.
+Print "[{t7}]".
+
+a text called t8 is 'repeat text' of "ab" and 3.
+Print "[{t8}]".
+a text called t9 is 'repeat text' of "ab" and 0.
+Print "[{t9}]".
+
+a list called words is 'split words' of "  one two   three ".
+Print words's size.
+Print the words.
+a text called t10 is join of words and ", ".
+Print "[{t10}]".
+
+For each w from words, print "<{w}>".
+a text called loud is uppercase of {trim of "  shout  "}.
+Print "[{loud}]".

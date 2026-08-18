@@ -1,0 +1,28 @@
+[spacious]
+5
+[world]
+[hello]
+11
+2
+0
+1
+1
+0
+1
+0
+1
+0
+0
+[MIXED CASE 123!]
+[mixed case 123!]
+[    42]
+[42    ]
+[ababab]
+[]
+3
+["one", "two", "three"]
+[one, two, three]
+<one>
+<two>
+<three>
+[SHOUT]

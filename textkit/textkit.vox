@@ -1,0 +1,236 @@
+(textkit - text utilities for Vox authors.
+
+ Vox ships text casting, format strings, and byte-level buffer access,
+ but no substring, search, trim, case, or tokenizing helpers - every
+ program that needs them hand-rolls a byte loop. This library packages
+ those loops once, behind text-in/text-out signatures.
+
+ Positions are 1-indexed and byte-oriented, matching `byte N of` and
+ `element N of`. "Whitespace" means space, tab, newline, carriage return.
+
+ Build and consume:
+   vox textkit.vox --shared -o libtextkit.so
+   see textkit version "0.1" from "./libtextkit.lib".)
+
+Library textkit version "0.1".
+
+(1 when byte b is space, tab, newline, or carriage return; else 0)
+To 'is whitespace' of a number called b.
+  a number called r is 0.
+  If b is 32 then, set r to 1.
+  If b is 9 then, set r to 1.
+  If b is 10 then, set r to 1.
+  If b is 13 then, set r to 1.
+  Return a number, r.
+
+(Length of a text in bytes - texts have no 's size of their own)
+To 'text length' of a text called t.
+  a buffer called src is "{t}".
+  Return a number, src's size.
+
+(Bytes low..high of t, 1-indexed, both ends inclusive, clamped)
+To slice of a text called t and a number called low and a number called high.
+  a buffer called src is "{t}".
+  a number called n is src's size.
+  a number called i is low.
+  a number called fin is high.
+  a number called b is 0.
+  If i is less than 1 then, set i to 1.
+  If fin is greater than n then, set fin to n.
+  Create a buffer called out.
+  a buffer called ch is 1 bytes in size.
+  While i is less than or equal to fin,
+    set b to byte i of src,
+    set byte 1 of ch to b,
+    append ch to out,
+    increment i.
+  a text called r is "{out}".
+  Return a text, r.
+
+(1-based position of the first occurrence of needle in hay, 0 if absent.
+ An empty needle is found at position 1.)
+To 'index of' of a text called hay and a text called needle.
+  a buffer called h is "{hay}".
+  a buffer called nd is "{needle}".
+  a number called H is h's size.
+  a number called N is nd's size.
+  a number called maxpos is {H subtract N} add 1.
+  a number called found is 0.
+  a number called i is 1.
+  a number called j is 0.
+  a number called cb is 0.
+  a number called nb is 0.
+  a number called ok is 0.
+  a number called eq is 0.
+  While found is 0 and i is less than or equal to maxpos,
+    set ok to 1,
+    set j to 1,
+    While ok is 1 and j is less than or equal to N,
+      set cb to byte {i add j subtract 1} of h,
+      set nb to byte j of nd,
+      set eq to 0,
+      if cb is nb then, set eq to 1.
+      if eq is 0 then, set ok to 0.
+      (two periods: close the if AND the inner while - see LANGUAGE.md,
+       "Closing more than one level")
+      if eq is 1 then, increment j..
+    if ok is 1 then, set found to i.
+    if found is 0 then, increment i..
+  Return a number, found.
+
+To contains of a text called hay and a text called needle.
+  a number called pos is 'index of' of hay and needle.
+  Return a boolean, pos is greater than 0.
+
+To 'starts with' of a text called hay and a text called prefix.
+  a number called pos is 'index of' of hay and prefix.
+  Return a boolean, pos is 1.
+
+To 'ends with' of a text called hay and a text called suffix.
+  a buffer called h is "{hay}".
+  a buffer called sfx is "{suffix}".
+  a number called H is h's size.
+  a number called S is sfx's size.
+  a number called off is 0.
+  a number called j is 1.
+  a number called hb is 0.
+  a number called sb is 0.
+  a number called ok is 0.
+  a number called eq is 0.
+  If S is less than or equal to H then, set ok to 1, set off to H subtract S.
+  While ok is 1 and j is less than or equal to S,
+    set hb to byte {off add j} of h,
+    set sb to byte j of sfx,
+    set eq to 0,
+    if hb is sb then, set eq to 1.
+    if eq is 0 then, set ok to 0.
+    if eq is 1 then, increment j..
+  Return a boolean, ok is 1.
+
+To uppercase of a text called t.
+  a buffer called src is "{t}".
+  a number called n is src's size.
+  a number called i is 1.
+  a number called b is 0.
+  Create a buffer called out.
+  a buffer called ch is 1 bytes in size.
+  While i is less than or equal to n,
+    set b to byte i of src,
+    if b is greater than or equal to 97 and b is less than or equal to 122 then, set b to b subtract 32.
+    set byte 1 of ch to b,
+    append ch to out,
+    increment i.
+  a text called r is "{out}".
+  Return a text, r.
+
+To lowercase of a text called t.
+  a buffer called src is "{t}".
+  a number called n is src's size.
+  a number called i is 1.
+  a number called b is 0.
+  Create a buffer called out.
+  a buffer called ch is 1 bytes in size.
+  While i is less than or equal to n,
+    set b to byte i of src,
+    if b is greater than or equal to 65 and b is less than or equal to 90 then, set b to b add 32.
+    set byte 1 of ch to b,
+    append ch to out,
+    increment i.
+  a text called r is "{out}".
+  Return a text, r.
+
+(t without leading or trailing whitespace)
+To trim of a text called t.
+  a buffer called src is "{t}".
+  a number called n is src's size.
+  a number called lo is 1.
+  a number called hi is n.
+  a number called b is 0.
+  a number called go is 1.
+  While go is 1 and lo is less than or equal to hi,
+    set b to byte lo of src,
+    set go to 'is whitespace' of b,
+    if go is 1 then, increment lo..
+  set go to 1.
+  While go is 1 and hi is greater than or equal to lo,
+    set b to byte hi of src,
+    set go to 'is whitespace' of b,
+    if go is 1 then, decrement hi..
+  Create a buffer called out.
+  a buffer called ch is 1 bytes in size.
+  While lo is less than or equal to hi,
+    set b to byte lo of src,
+    set byte 1 of ch to b,
+    append ch to out,
+    increment lo.
+  a text called r is "{out}".
+  Return a text, r.
+
+(t left-padded with spaces to width bytes; unchanged if already wider)
+To 'pad left' of a text called t and a number called width.
+  a buffer called src is "{t}".
+  a number called n is src's size.
+  Create a buffer called out.
+  While n is less than width,
+    append " " to out,
+    increment n.
+  append src to out.
+  a text called r is "{out}".
+  Return a text, r.
+
+To 'pad right' of a text called t and a number called width.
+  a buffer called src is "{t}".
+  a number called n is src's size.
+  Create a buffer called out.
+  append src to out.
+  While n is less than width,
+    append " " to out,
+    increment n.
+  a text called r is "{out}".
+  Return a text, r.
+
+To 'repeat text' of a text called t and a number called n.
+  Create a buffer called out.
+  a number called i is 1.
+  While i is less than or equal to n,
+    append "{t}" to out,
+    increment i.
+  a text called r is "{out}".
+  Return a text, r.
+
+(The bytes of a buffer as a fresh text)
+To 'buffer text' of a buffer called w.
+  a text called r is "{w}".
+  Return a text, r.
+
+(Whitespace-separated tokens of t, as a list of text)
+To 'split words' of a text called t.
+  (the trailing separator guarantees the last token is flushed)
+  a buffer called src is "{t} ".
+  a list called out is [].
+  Create a buffer called word.
+  a buffer called ch is 1 bytes in size.
+  a number called n is src's size.
+  a number called i is 1.
+  a number called b is 0.
+  a number called ws is 0.
+  While i is less than or equal to n,
+    set b to byte i of src,
+    set ws to 'is whitespace' of b,
+    if ws is 0 then, set byte 1 of ch to b, append ch to word.
+    if ws is 1 and word's size is greater than 0 then, append 'buffer text' of word to out, clear word.
+    increment i.
+  Return a list, out.
+
+(Elements of items joined into one text with sep between each pair)
+To join of a list called items and a text called sep.
+  Create a buffer called out.
+  a number called n is items's size.
+  a number called i is 1.
+  While i is less than or equal to n,
+    a text called item is element i of items,
+    append "{item}" to out,
+    if i is less than n then, append "{sep}" to out.
+    increment i.
+  a text called r is "{out}".
+  Return a text, r.
