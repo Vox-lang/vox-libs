@@ -11,6 +11,7 @@ Source0:        %{url}/archive/v%{version}/vox-libs-%{version}.tar.gz
 # here — the inverse of the vox package, where nasm/binutils are runtime
 # Requires because vox only shells out to them for a user's program. vox is
 # published in this same Copr project, so it is present in the buildroot.
+BuildRequires:  make
 BuildRequires:  vox
 BuildRequires:  nasm
 BuildRequires:  binutils
