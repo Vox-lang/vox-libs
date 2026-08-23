@@ -1,0 +1,250 @@
+(Every json export, called the way you would actually use it: a realistic
+ document read in, its values taken out one by one, the shape changed, and
+ the whole thing written back out and read again to prove the two
+ directions really are each other's inverse.
+
+ This demo is the library's test - its output is compared byte for byte
+ against json_demo.expected - so it is also the honest documentation of
+ what each export does, edges included.
+
+ One thing to know before reading the JSON below. A brace in a Vox text
+ begins a format hole, so a literal brace is written twice: `{{` for `{`
+ and `}}` for `}`. That doubling is Vox's rule about its own texts, not
+ anything to do with JSON - the document that reaches the library has
+ single braces, exactly as written on the wire.
+
+   vox json.vox --shared -o libjson.so
+   vox json_demo.vox --link json -o json_demo
+   ./json_demo)
+
+see json version "0.1" from "./libjson.lib".
+
+(A document with one of everything in it: nested objects, arrays, an
+ escape of every kind, a null, both booleans, an integer, a decimal, and
+ an exponent. It is written across several lines, with the indentation a
+ person would use, because JSON allows whitespace between any two tokens
+ and the reader has to take it in its stride.)
+Create a buffer called 'the document'.
+append "{{\n" to 'the document'.
+append "  \"name\": \"Ada Lovelace\",\n" to 'the document'.
+append "  \"born\": 1815,\n" to 'the document'.
+append "  \"score\": 99.5,\n" to 'the document'.
+append "  \"active\": true,\n" to 'the document'.
+append "  \"retired\": false,\n" to 'the document'.
+append "  \"nickname\": null,\n" to 'the document'.
+append "  \"tags\": [\"mathematician\", \"programmer\"],\n" to 'the document'.
+append "  \"address\": {{ \"city\": \"London\", \"postcode\": \"W1\" }},\n" to 'the document'.
+append "  \"notes\": \"she said \\\"hello\\\" \\\\ then a tab\\there\",\n" to 'the document'.
+append "  \"nothing here\": [],\n" to 'the document'.
+append "  \"nor here\": {{}},\n" to 'the document'.
+append "  \"measurements\": [1, 2.5, -3, 1e2]\n" to 'the document'.
+append "}}\n" to 'the document'.
+a text called 'the source' is "{'the document'}".
+
+Print "--- the document as it arrived ---".
+Print 'the source'.
+
+(Ask before you read, when a malformed document and the document `null`
+ would mean different things to you.)
+Print "--- reading it ---".
+a boolean called 'it reads as json' is 'reads as json' of 'the source'.
+Print "reads as json: {'it reads as json'}".
+
+a value called held is 'from json' of 'the source'.
+a map called person is held.
+Print "entries: {person's length}".
+
+(Every kind of value comes back as the Vox type that matches it, so an
+ ordinary declaration is all it takes to get at one.)
+Print "--- the values, one by one ---".
+a text called name is person's "name".
+Print "name: {name}".
+a number called born is person's "born".
+Print "born: {born}, and a century later: {born add 100}".
+a float called score is person's "score".
+Print "score: {score}, doubled: {score multiply 2.0}".
+a boolean called active is person's "active".
+Print "active: {active}".
+a boolean called retired is person's "retired".
+Print "retired: {retired}".
+a value called nickname is person's "nickname".
+If nickname is nothing then, Print "nickname: none was given".
+a text called notes is person's "notes".
+Print "notes: {notes}".
+
+(A null and a key that was never there are different things, and stay
+ different: the null is present and holds nothing.)
+a value called 'a key that was never there' is person's "no such key".
+On error Print "no such key: absent, which is not the same as null".
+
+(Nested collections are ordinary lists and maps too.)
+a list called tags is person's "tags".
+Print "tags: {tags's length} of them, {tags}".
+a value called 'the first tag' is element 1 of tags.
+Print "the first tag: {'the first tag'}".
+a map called address is person's "address".
+a text called city is address's "city".
+a text called postcode is address's "postcode".
+Print "city: {city}, postcode: {postcode}".
+a list called 'nothing here' is person's "nothing here".
+Print "an empty array reads back with {'nothing here''s length} elements".
+a map called 'nor here' is person's "nor here".
+Print "an empty object reads back with {'nor here''s length} entries".
+
+(Whether a number arrives as a number or as a decimal is decided by how it
+ was written, not by what it happens to equal: 1 and -3 are integers, 2.5
+ has a fraction, and 1e2 has an exponent, so it is a decimal that is worth
+ exactly one hundred.)
+a list called measurements is person's "measurements".
+Print "measurements: {measurements}".
+Print "measurements as json: {'to json' of measurements}".
+
+(Changing the shape is changing an ordinary Vox map: the library hands you
+ the real thing, not a view of it.)
+Print "--- changing it ---".
+Set person's "score" to 100.0.
+Set person's "active" to false.
+Set person's "nickname" to "the Enchantress of Number".
+Set person's "children" to 3.
+append "poet" to tags.
+a float called 'the new score' is person's "score".
+Print "score is now {'the new score'}, tags number {tags's length}".
+
+Print "--- and writing it back out ---".
+a text called rewritten is 'to json' of person.
+Print rewritten.
+
+(The proof that the two directions are inverses: read what was just
+ written, and write that out again. If the second text differs from the
+ first by so much as a byte, one of the two is wrong.)
+Print "--- reading the new document back ---".
+a value called 'read again' is 'from json' of rewritten.
+a text called 'written twice' is 'to json' of 'read again'.
+Print 'written twice'.
+a boolean called 'the round trip held' is false.
+If rewritten is 'written twice' then, set 'the round trip held' to true.
+Print "the text survived a round trip: {'the round trip held'}".
+a map called 'the person again' is 'read again'.
+a text called 'the nickname again' is 'the person again''s "nickname".
+a number called 'the children again' is 'the person again''s "children".
+Print "and so did the values: {'the nickname again'} with {'the children again'} children".
+
+(The same document, laid out for a person to read: every member on its own
+ line, indented by that many spaces for each level it is inside, and a
+ space after each colon. This is what json.dumps(indent=n) writes in
+ Python, and it is the same document - it parses straight back.)
+Print "--- and laid out to be read ---".
+a text called 'laid out' is 'to json with indent' of person and 2.
+Print 'laid out'.
+a text called 'read back from the laid-out text' is 'to json' of {'from json' of 'laid out'}.
+a boolean called 'the layout changed nothing' is false.
+If rewritten is 'read back from the laid-out text' then, set 'the layout changed nothing' to true.
+Print "and it says exactly what the compact one says: {'the layout changed nothing'}".
+a text called 'an empty pair laid out' is 'to json with indent' of {{"here": {{}}, "none": []}} and 2.
+Print "empty collections have no second line to go to:".
+Print 'an empty pair laid out'.
+
+(A document with no whitespace in it comes back out with none either: this
+ library writes the tightest form there is, and the entries come out in
+ the order the map holds them, which for a parsed document is the order
+ they were written.)
+Print "--- byte for byte, on a canonical document ---".
+a text called canonical is "{{\"z\":1,\"a\":[true,false,null],\"m\":{{\"deep\":[[1],[2]]}}}}".
+a text called 'canonical again' is 'to json' of {'from json' of canonical}.
+Print canonical.
+Print 'canonical again'.
+a boolean called 'canonical survived' is false.
+If canonical is 'canonical again' then, set 'canonical survived' to true.
+Print "unchanged: {'canonical survived'}".
+
+(Every kind of value, written from scratch. A boolean is spelt out, since
+ Vox prints one as 1 and JSON does not.)
+Print "--- writing each kind from scratch ---".
+Print 'to json' of 42.
+Print 'to json' of -7.
+Print 'to json' of 0.
+Print 'to json' of 3.25.
+Print 'to json' of 2.0.
+Print 'to json' of -0.5.
+Print 'to json' of true.
+Print 'to json' of false.
+Print 'to json' of nothing.
+Print 'to json' of "plain text".
+Print 'to json' of "".
+Print 'to json' of [].
+Print 'to json' of {{}}.
+Print 'to json' of [1, "two", 3.5, true, false, nothing, [1, 2]].
+
+(Escapes, both directions. The seven characters JSON gives a letter of
+ their own are written that way; every other control byte is written as
+ \u00XX; a forward slash is left bare, which JSON allows; and the bytes of
+ a letter above ASCII pass through untouched, so an accent and an emoji
+ come out as themselves.)
+Print "--- escapes ---".
+Print 'to json' of "a quote \" a backslash \\ a tab \t a newline \n".
+Print 'to json' of "a slash / stays bare".
+Print 'to json' of "café and an emoji 😀".
+Create a buffer called 'some control bytes'.
+set byte 1 of 'some control bytes' to 1.
+set byte 2 of 'some control bytes' to 7.
+set byte 3 of 'some control bytes' to 31.
+a text called 'the control bytes' is "{'some control bytes'}".
+Print 'to json' of 'the control bytes'.
+Print "and back again:".
+Print 'from json' of "\"a quote \\\" a backslash \\\\ a tab \\t\"".
+Print 'from json' of "\"\\u0041\\u00e9\\u4e2d\\ud83d\\ude00\"".
+Print 'from json' of "\"a slash \\/ may be escaped on the way in\"".
+
+(Numbers, in detail. An integer of eighteen digits or fewer is exact; a
+ longer one becomes the nearest decimal, because that is the widest thing
+ Vox can hold it in. An exponent moves the point rather than multiplying,
+ so 1e2 is exactly a hundred.)
+Print "--- numbers ---".
+Print 'to json' of {'from json' of "999999999999999999"}.
+Print 'to json' of {'from json' of "1234567890123456789012345"}.
+Print 'to json' of {'from json' of "1e2"}.
+Print 'to json' of {'from json' of "-1.5e3"}.
+Print 'to json' of {'from json' of "1e-2"}.
+Print 'to json' of {'from json' of "2.5E-2"}.
+Print 'to json' of {'from json' of "-0"}.
+
+(What is refused, and why it matters that it is refused rather than
+ guessed at. Each of these is a document a looser reader would accept and
+ hand you the wrong answer for.)
+Print "--- malformed documents ---".
+a boolean called 'cut short' is 'reads as json' of "{{\"a\": 1".
+Print "cut short:            {'cut short'}".
+a boolean called 'a trailing comma' is 'reads as json' of "[1, 2,]".
+Print "trailing comma:       {'a trailing comma'}".
+a boolean called 'an unquoted key' is 'reads as json' of "{{a: 1}}".
+Print "unquoted key:         {'an unquoted key'}".
+a boolean called 'single quotes' is 'reads as json' of "'a'".
+Print "single quotes:        {'single quotes'}".
+a boolean called 'a leading zero' is 'reads as json' of "01".
+Print "leading zero:         {'a leading zero'}".
+a boolean called 'a bare point' is 'reads as json' of "1.".
+Print "a bare point:         {'a bare point'}".
+a boolean called 'an unknown escape' is 'reads as json' of "\"a\\xb\"".
+Print "an unknown escape:    {'an unknown escape'}".
+a boolean called 'half a character' is 'reads as json' of "\"\\ud83d\"".
+Print "half a character:     {'half a character'}".
+a boolean called 'a raw newline inside' is 'reads as json' of "\"a\nb\"".
+Print "a raw newline inside: {'a raw newline inside'}".
+a boolean called 'left over text' is 'reads as json' of "1 2".
+Print "left over text:       {'left over text'}".
+a boolean called 'nothing at all' is 'reads as json' of "".
+Print "nothing at all:       {'nothing at all'}".
+a value called 'the malformed answer' is 'from json' of "{{\"a\": 1".
+Print "and a malformed document answers: {'the malformed answer'}".
+
+(Nesting is allowed 64 levels deep, in either direction. Deeper than that
+ is refused rather than run at until the stack gives out - which is also
+ what happens to a value that contains itself.)
+Print "--- depth ---".
+a boolean called 'ten deep' is 'reads as json' of "[[[[[[[[[[1]]]]]]]]]]".
+Print "ten deep:      {'ten deep'}".
+a map called 'a map that holds itself' is {{}}.
+Set 'a map that holds itself's "self" to 'a map that holds itself'.
+a text called 'the impossible text' is 'to json' of 'a map that holds itself'.
+a buffer called 'how much came out' is "{'the impossible text'}".
+Print "a map holding itself writes {'how much came out''s size} bytes, and the program is still here".

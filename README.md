@@ -8,6 +8,8 @@
 [![crates.io](https://img.shields.io/crates/v/vox-libs?style=flat-square)](https://crates.io/crates/vox-libs)
 
 Shared libraries for [Vox](https://github.com/Vox-lang/vox), written in Vox.
+The language lives at [vox-lang.dev](https://vox-lang.dev); the full
+reference is at [vox-lang.dev/docs/](https://vox-lang.dev/docs/).
 
 **Vox has no standard library, and that is deliberate.** The compiler
 builds and runs with nothing installed here — it must never assume a
@@ -28,6 +30,7 @@ object in `/usr/lib64/`, where `ldconfig` can index them.
 |---|---|
 | **textkit** | Substring, search, trim, case, and tokenizing — the byte loops every Vox author would otherwise hand-roll. |
 | **process** | Decodes a raw wait status into an exit code or terminating signal, the way `<sys/wait.h>` does for C. |
+| **json** | Full JSON serialisation and deserialisation — `'to json'` and `'from json'`, the pair Python spells `dumps` and `loads`. |
 
 Each library carries its own version and moves on its own clock; the
 compiler's version does not drag them along.

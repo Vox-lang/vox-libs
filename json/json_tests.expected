@@ -1,0 +1,11 @@
+-- writing scalars --
+-- writing escapes --
+-- reading escapes --
+-- numbers --
+-- null, true, and false --
+-- objects and arrays --
+-- whole documents --
+-- nesting depth --
+-- laying a document out --
+-- round trips --
+150 assertions, 0 failures

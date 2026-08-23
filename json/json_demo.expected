@@ -1,0 +1,129 @@
+--- the document as it arrived ---
+{
+  "name": "Ada Lovelace",
+  "born": 1815,
+  "score": 99.5,
+  "active": true,
+  "retired": false,
+  "nickname": null,
+  "tags": ["mathematician", "programmer"],
+  "address": { "city": "London", "postcode": "W1" },
+  "notes": "she said \"hello\" \\ then a tab\there",
+  "nothing here": [],
+  "nor here": {},
+  "measurements": [1, 2.5, -3, 1e2]
+}
+
+--- reading it ---
+reads as json: 1
+entries: 12
+--- the values, one by one ---
+name: Ada Lovelace
+born: 1815, and a century later: 1915
+score: 99.5, doubled: 199.0
+active: 1
+retired: 0
+nickname: none was given
+notes: she said "hello" \ then a tab	here
+no such key: absent, which is not the same as null
+tags: 2 of them, ["mathematician", "programmer"]
+the first tag: mathematician
+city: London, postcode: W1
+an empty array reads back with 0 elements
+an empty object reads back with 0 entries
+measurements: [1, 2.5, -3, 100.0]
+measurements as json: [1,2.5,-3,100.0]
+--- changing it ---
+score is now 100.0, tags number 3
+--- and writing it back out ---
+{"name":"Ada Lovelace","born":1815,"score":100.0,"active":false,"retired":false,"nickname":"the Enchantress of Number","tags":["mathematician","programmer","poet"],"address":{"city":"London","postcode":"W1"},"notes":"she said \"hello\" \\ then a tab\there","nothing here":[],"nor here":{},"measurements":[1,2.5,-3,100.0],"children":3}
+--- reading the new document back ---
+{"name":"Ada Lovelace","born":1815,"score":100.0,"active":false,"retired":false,"nickname":"the Enchantress of Number","tags":["mathematician","programmer","poet"],"address":{"city":"London","postcode":"W1"},"notes":"she said \"hello\" \\ then a tab\there","nothing here":[],"nor here":{},"measurements":[1,2.5,-3,100.0],"children":3}
+the text survived a round trip: 1
+and so did the values: the Enchantress of Number with 3 children
+--- and laid out to be read ---
+{
+  "name": "Ada Lovelace",
+  "born": 1815,
+  "score": 100.0,
+  "active": false,
+  "retired": false,
+  "nickname": "the Enchantress of Number",
+  "tags": [
+    "mathematician",
+    "programmer",
+    "poet"
+  ],
+  "address": {
+    "city": "London",
+    "postcode": "W1"
+  },
+  "notes": "she said \"hello\" \\ then a tab\there",
+  "nothing here": [],
+  "nor here": {},
+  "measurements": [
+    1,
+    2.5,
+    -3,
+    100.0
+  ],
+  "children": 3
+}
+and it says exactly what the compact one says: 1
+empty collections have no second line to go to:
+{
+  "here": {},
+  "none": []
+}
+--- byte for byte, on a canonical document ---
+{"z":1,"a":[true,false,null],"m":{"deep":[[1],[2]]}}
+{"z":1,"a":[true,false,null],"m":{"deep":[[1],[2]]}}
+unchanged: 1
+--- writing each kind from scratch ---
+42
+-7
+0
+3.25
+2.0
+-0.5
+true
+false
+null
+"plain text"
+""
+[]
+{}
+[1,"two",3.5,true,false,null,[1,2]]
+--- escapes ---
+"a quote \" a backslash \\ a tab \t a newline \n"
+"a slash / stays bare"
+"café and an emoji 😀"
+"\u0001\u0007\u001f"
+and back again:
+a quote " a backslash \ a tab 	
+Aé中😀
+a slash / may be escaped on the way in
+--- numbers ---
+999999999999999999
+1234567890123456824475648.0
+100.0
+-1500.0
+0.01
+0.025
+0
+--- malformed documents ---
+cut short:            0
+trailing comma:       0
+unquoted key:         0
+single quotes:        0
+leading zero:         0
+a bare point:         0
+an unknown escape:    0
+half a character:     0
+a raw newline inside: 0
+left over text:       0
+nothing at all:       0
+and a malformed document answers: nothing
+--- depth ---
+ten deep:      1
+a map holding itself writes 0 bytes, and the program is still here

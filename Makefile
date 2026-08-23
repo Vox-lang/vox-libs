@@ -26,7 +26,7 @@ ifneq ($(VOX_CORE_PATH),)
 export VOX_CORE_PATH
 endif
 
-LIBS  := textkit process
+LIBS  := textkit process json
 BUILD := build
 
 .PHONY: all build install uninstall test clean $(LIBS)
@@ -66,17 +66,37 @@ uninstall:
 
 # Each library's own demo is its test: compile it against the built library and
 # diff against the recorded expected output.
+#
+# A library may also ship <name>/<name>_tests.vox: a program of named
+# assertions that prints nothing but its headings and a tally, and exits
+# non-zero when a claim does not hold. It is checked twice over -- its exit
+# status has to be 0, and its transcript has to match <name>_tests.expected --
+# so a library gates itself here rather than only being demonstrated.
 test: build
 	@fail=0; \
 	for lib in $(LIBS); do \
 	    demo="$$lib/$${lib}_demo.vox"; \
-	    [ -f "$$demo" ] || continue; \
-	    $(VOX) "$$demo" --link "$$lib" --lib-path $(BUILD) -o $(BUILD)/$${lib}_demo || { fail=1; continue; }; \
-	    LD_LIBRARY_PATH=$(BUILD) $(BUILD)/$${lib}_demo > $(BUILD)/$${lib}_demo.out 2>&1 || true; \
-	    if diff -q "$$lib/$${lib}_demo.expected" $(BUILD)/$${lib}_demo.out >/dev/null 2>&1; then \
-	        echo "PASS $$lib"; \
+	    if [ -f "$$demo" ]; then \
+	        if $(VOX) "$$demo" --link "$$lib" --lib-path $(BUILD) -o $(BUILD)/$${lib}_demo; then \
+	            LD_LIBRARY_PATH=$(BUILD) $(BUILD)/$${lib}_demo > $(BUILD)/$${lib}_demo.out 2>&1 || true; \
+	            if diff -q "$$lib/$${lib}_demo.expected" $(BUILD)/$${lib}_demo.out >/dev/null 2>&1; then \
+	                echo "PASS $$lib demo"; \
+	            else \
+	                echo "FAIL $$lib demo"; diff -u "$$lib/$${lib}_demo.expected" $(BUILD)/$${lib}_demo.out || true; fail=1; \
+	            fi; \
+	        else fail=1; fi; \
+	    fi; \
+	    tests="$$lib/$${lib}_tests.vox"; \
+	    [ -f "$$tests" ] || continue; \
+	    $(VOX) "$$tests" --link "$$lib" --lib-path $(BUILD) -o $(BUILD)/$${lib}_tests || { fail=1; continue; }; \
+	    if LD_LIBRARY_PATH=$(BUILD) $(BUILD)/$${lib}_tests > $(BUILD)/$${lib}_tests.out 2>&1; then \
+	        if diff -q "$$lib/$${lib}_tests.expected" $(BUILD)/$${lib}_tests.out >/dev/null 2>&1; then \
+	            echo "PASS $$lib tests"; \
+	        else \
+	            echo "FAIL $$lib tests"; diff -u "$$lib/$${lib}_tests.expected" $(BUILD)/$${lib}_tests.out || true; fail=1; \
+	        fi; \
 	    else \
-	        echo "FAIL $$lib"; diff -u "$$lib/$${lib}_demo.expected" $(BUILD)/$${lib}_demo.out || true; fail=1; \
+	        echo "FAIL $$lib tests"; cat $(BUILD)/$${lib}_tests.out; fail=1; \
 	    fi; \
 	done; \
 	exit $$fail
