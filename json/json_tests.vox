@@ -1,0 +1,280 @@
+(json's unit tests - the library gating itself, in this repo, with Vox as
+ its only dependency.
+
+ Where json_demo.vox shows the library being used, this shows it being
+ held to account: many small named claims, each one checked, and a tally
+ at the end. A claim that does not hold prints
+
+   ASSERT <name>: expected <x> got <y>
+
+ and the program exits 1, so `make test` fails on it. Nothing else is
+ printed but the section headings and the tally, which is why the expected
+ transcript is short: silence is the whole point of a passing test.
+
+ One thing to know before reading the JSON below. A brace in a Vox text
+ begins a format hole, so a literal brace is written twice: `{{` for `{`
+ and `}}` for `}`. That doubling is Vox's rule about its own texts, not
+ anything to do with JSON.
+
+   vox json.vox --shared -o libjson.so
+   vox json_tests.vox --link json -o json_tests
+   ./json_tests)
+
+see json version "0.1" from "./libjson.lib".
+
+a number called 'assertions made' is 0.
+a number called failures is 0.
+
+(Every claim goes through here, so a failure always reads the same way and
+ the tally at the end is the whole verdict.)
+To check with a text called name and a text called wanted and a text called got.
+  increment 'assertions made'.
+  If got is wanted then, Return.
+  increment failures.
+  Print "ASSERT {name}: expected {wanted} got {got}".
+
+(Read a document and write it straight back out in the compact form: what
+ comes back is what the reader made of it, said in one text.)
+To 'read back' with a text called document.
+  Return a text, 'to json' of {'from json' of document}.
+
+(A document the reader must refuse, and one it must accept. Both go through
+ check so that every claim lands in the same tally.)
+To 'must refuse' with a text called name and a text called document.
+  a boolean called 'it read as json' is 'reads as json' of document.
+  a text called verdict is "accepted".
+  If 'it read as json' is false then, set verdict to "refused".
+  check with name and "refused" and verdict.
+
+To 'must accept' with a text called name and a text called document.
+  a boolean called 'it read as json' is 'reads as json' of document.
+  a text called verdict is "refused".
+  If 'it read as json' then, set verdict to "accepted".
+  check with name and "accepted" and verdict.
+
+(A canonical document must come back byte for byte: written tightest, read,
+ and written tightest again.)
+To 'must round trip' with a text called name and a text called document.
+  check with name and document and {'read back' with document}.
+
+Print "-- writing scalars --".
+check with "an integer" and "42" and {'to json' of 42}.
+check with "a negative integer" and "-7" and {'to json' of -7}.
+check with "zero" and "0" and {'to json' of 0}.
+check with "a decimal" and "3.25" and {'to json' of 3.25}.
+check with "a whole decimal keeps its point" and "2.0" and {'to json' of 2.0}.
+check with "a negative decimal" and "-0.5" and {'to json' of -0.5}.
+check with "true" and "true" and {'to json' of true}.
+check with "false" and "false" and {'to json' of false}.
+check with "nothing is null" and "null" and {'to json' of nothing}.
+check with "a text" and "\"plain\"" and {'to json' of "plain"}.
+check with "the empty text" and "\"\"" and {'to json' of ""}.
+check with "an empty list" and "[]" and {'to json' of []}.
+check with "an empty map" and "{{}}" and {'to json' of {{}}}.
+check with "a list of one" and "[1]" and {'to json' of [1]}.
+check with "a mixed list" and "[1,\"two\",3.5,true,false,null]" and {'to json' of [1, "two", 3.5, true, false, nothing]}.
+check with "a nested list" and "[[1],[2,[3]]]" and {'to json' of [[1],[2,[3]]]}.
+
+Print "-- writing escapes --".
+check with "a quote is escaped" and "\"a\\\"b\"" and {'to json' of "a\"b"}.
+check with "a backslash is escaped" and "\"a\\\\b\"" and {'to json' of "a\\b"}.
+check with "a newline is escaped" and "\"a\\nb\"" and {'to json' of "a\nb"}.
+check with "a tab is escaped" and "\"a\\tb\"" and {'to json' of "a\tb"}.
+Create a buffer called 'one odd byte'.
+set byte 1 of 'one odd byte' to 13.
+a text called 'a carriage return' is "{'one odd byte'}".
+check with "a carriage return is escaped" and "\"\\r\"" and {'to json' of 'a carriage return'}.
+set byte 1 of 'one odd byte' to 8.
+a text called 'a backspace' is "{'one odd byte'}".
+check with "a backspace is escaped" and "\"\\b\"" and {'to json' of 'a backspace'}.
+set byte 1 of 'one odd byte' to 12.
+a text called 'a form feed' is "{'one odd byte'}".
+check with "a form feed is escaped" and "\"\\f\"" and {'to json' of 'a form feed'}.
+set byte 1 of 'one odd byte' to 1.
+a text called 'a start of heading' is "{'one odd byte'}".
+check with "a lettered escape is not invented" and "\"\\u0001\"" and {'to json' of 'a start of heading'}.
+set byte 1 of 'one odd byte' to 31.
+a text called 'a unit separator' is "{'one odd byte'}".
+check with "the last control byte" and "\"\\u001f\"" and {'to json' of 'a unit separator'}.
+set byte 1 of 'one odd byte' to 32.
+a text called 'a space' is "{'one odd byte'}".
+check with "a space is not a control byte" and "\" \"" and {'to json' of 'a space'}.
+check with "a slash stays bare" and "\"a/b\"" and {'to json' of "a/b"}.
+check with "an accented letter passes through" and "\"café\"" and {'to json' of "café"}.
+check with "an emoji passes through" and "\"😀\"" and {'to json' of "😀"}.
+
+Print "-- reading escapes --".
+check with "an escaped quote" and "\"a\\\"b\"" and {'read back' with "\"a\\\"b\""}.
+check with "an escaped backslash" and "\"a\\\\b\"" and {'read back' with "\"a\\\\b\""}.
+check with "an escaped slash comes back bare" and "\"a/b\"" and {'read back' with "\"a\\/b\""}.
+check with "the five lettered control escapes" and "\"\\b\\f\\n\\r\\t\"" and {'read back' with "\"\\b\\f\\n\\r\\t\""}.
+check with "a hex escape of a control byte" and "\"\\u0001\"" and {'read back' with "\"\\u0001\""}.
+check with "a hex escape in capitals" and "\"\\u001f\"" and {'read back' with "\"\\u001F\""}.
+check with "a hex escape of a letter" and "\"A\"" and {'read back' with "\"\\u0041\""}.
+check with "a hex escape above ASCII" and "\"café\"" and {'read back' with "\"caf\\u00e9\""}.
+check with "a hex escape of a CJK letter" and "\"中\"" and {'read back' with "\"\\u4e2d\""}.
+check with "a surrogate pair is one character" and "\"😀\"" and {'read back' with "\"\\ud83d\\ude00\""}.
+check with "a surrogate pair among letters" and "\"a😀b\"" and {'read back' with "\"a\\ud83d\\ude00b\""}.
+'must refuse' with "a null escape, which a Vox text cannot hold" and "\"\\u0000\"".
+'must refuse' with "a lone leading surrogate" and "\"\\ud83d\"".
+'must refuse' with "a lone trailing surrogate" and "\"\\ude00\"".
+'must refuse' with "a leading surrogate followed by a letter" and "\"\\ud83dA\"".
+'must refuse' with "a hex escape cut short" and "\"\\u12\"".
+'must refuse' with "a hex escape with a bad digit" and "\"\\u12g4\"".
+'must refuse' with "an escape that is not one of the nine" and "\"a\\xb\"".
+'must refuse' with "a backslash at the very end" and "\"a\\\"".
+
+Print "-- numbers --".
+check with "eighteen digits stay a whole number" and "999999999999999999" and {'read back' with "999999999999999999"}.
+check with "seventeen digits stay a whole number" and "9007199254740993" and {'read back' with "9007199254740993"}.
+check with "nineteen digits become a decimal" and "1000000000000000000.0" and {'read back' with "1000000000000000000"}.
+check with "the rule counts digits, not whether it would fit" and "9223372036854775808.0" and {'read back' with "9223372036854775807"}.
+check with "twenty digits become a decimal" and "10000000000000000000.0" and {'read back' with "10000000000000000000"}.
+check with "a very long integer becomes a decimal" and "1234567890123456824475648.0" and {'read back' with "1234567890123456789012345"}.
+check with "an exponent moves the point exactly" and "100.0" and {'read back' with "1e2"}.
+check with "a capital exponent" and "100.0" and {'read back' with "1E2"}.
+check with "an exponent with a plus" and "100.0" and {'read back' with "1e+2"}.
+check with "a fraction with an exponent" and "1500.0" and {'read back' with "1.5e3"}.
+check with "a negative exponent" and "0.01" and {'read back' with "1e-2"}.
+check with "a fraction and a negative exponent" and "0.025" and {'read back' with "2.5E-2"}.
+check with "a negative number with a negative exponent" and "-0.0015" and {'read back' with "-1.5e-3"}.
+check with "minus zero is zero" and "0" and {'read back' with "-0"}.
+check with "zero" and "0" and {'read back' with "0"}.
+check with "zero with a fraction" and "0.5" and {'read back' with "0.5"}.
+check with "a negative fraction" and "-0.25" and {'read back' with "-0.25"}.
+'must refuse' with "a leading zero" and "01".
+'must refuse' with "a leading zero on a negative number" and "-01".
+'must refuse' with "a bare decimal point" and "1.".
+'must refuse' with "a point with no whole part" and ".5".
+'must refuse' with "a lone minus" and "-".
+'must refuse' with "an exponent with no digits" and "1e".
+'must refuse' with "an exponent with only a sign" and "1e+".
+'must refuse' with "an exponent too long to mean anything" and "1e999999".
+'must refuse' with "a number past what a decimal holds" and "1e400".
+'must refuse' with "a leading plus" and "+1".
+'must accept' with "a number at the edge of the range" and "1e308".
+
+Print "-- null, true, and false --".
+'must round trip' with "null on its own" and "null".
+'must round trip' with "true on its own" and "true".
+'must round trip' with "false on its own" and "false".
+'must round trip' with "the three of them in a list" and "[true,false,null]".
+'must refuse' with "True with a capital" and "True".
+'must refuse' with "NULL with capitals" and "NULL".
+'must refuse' with "NaN, which JSON does not have" and "NaN".
+'must refuse' with "Infinity, which JSON does not have" and "Infinity".
+'must refuse' with "a bare word" and "hello".
+a value called 'a document with a null' is 'from json' of "{{\"here\":null}}".
+a map called 'the null holder' is 'a document with a null'.
+a value called 'the null itself' is 'the null holder''s "here".
+a text called 'what the null is' is "a value".
+If 'the null itself' is nothing then, set 'what the null is' to "nothing".
+check with "a null key holds nothing" and "nothing" and 'what the null is'.
+check with "a null key is still present" and "1" and "{'the null holder''s length}".
+
+Print "-- objects and arrays --".
+'must round trip' with "an empty object" and "{{}}".
+'must round trip' with "an empty array" and "[]".
+'must round trip' with "one entry" and "{{\"a\":1}}".
+'must round trip' with "keys in the order they were written" and "{{\"z\":1,\"a\":2,\"m\":3}}".
+'must round trip' with "an empty key" and "{{\"\":1}}".
+'must round trip' with "a key with a space" and "{{\"a b\":1}}".
+'must round trip' with "a key with braces in it" and "{{\"{{}}\":1}}".
+'must round trip' with "a key with a quote in it" and "{{\"\\\"\":1}}".
+'must round trip' with "an object inside an array inside an object" and "{{\"a\":[{{\"b\":[1,2]}}]}}".
+'must round trip' with "empty collections inside a document" and "{{\"a\":[],\"b\":{{}},\"c\":[[]],\"d\":{{\"e\":{{}}}}}}".
+check with "a later key of the same name wins" and "{{\"a\":2}}" and {'read back' with "{{\"a\":1,\"a\":2}}"}.
+'must refuse' with "an unquoted key" and "{{a: 1}}".
+'must refuse' with "a number as a key" and "{{1: 2}}".
+'must refuse' with "a missing colon" and "{{\"a\" 1}}".
+'must refuse' with "a missing value" and "{{\"a\":}}".
+'must refuse' with "a trailing comma in an object" and "{{\"a\":1,}}".
+'must refuse' with "a trailing comma in an array" and "[1,2,]".
+'must refuse' with "a doubled comma" and "[1,,2]".
+'must refuse' with "an object cut short" and "{{\"a\":1".
+'must refuse' with "an array cut short" and "[1,2".
+'must refuse' with "a string cut short" and "\"abc".
+'must refuse' with "a closing brace on its own" and "}}".
+'must refuse' with "a closing bracket on its own" and "]".
+'must refuse' with "the wrong closing bracket" and "[1}}".
+'must refuse' with "single quotes around a string" and "'a'".
+'must refuse' with "a raw newline inside a string" and "\"a\nb\"".
+'must refuse' with "a raw tab inside a string" and "\"a\tb\"".
+
+Print "-- whole documents --".
+'must refuse' with "nothing at all" and "".
+'must refuse' with "whitespace and nothing else" and "  \t\n ".
+'must refuse' with "two values where one was asked for" and "1 2".
+'must refuse' with "text left over after the document" and "{{\"a\":1}} extra".
+'must accept' with "whitespace before and after" and "  \n\t {{\"a\":1}} \n  ".
+check with "whitespace between every token is ignored" and "{{\"a\":[1,2]}}" and {'read back' with " {{ \"a\" : [ 1 , 2 ] }} "}.
+a value called 'a malformed answer' is 'from json' of "{{\"a\":1".
+a text called 'what a malformed document answers' is "a value".
+If 'a malformed answer' is nothing then, set 'what a malformed document answers' to "nothing".
+check with "a malformed document answers nothing" and "nothing" and 'what a malformed document answers'.
+
+Print "-- nesting depth --".
+Create a buffer called 'deep arrays'.
+Create a buffer called 'deeper arrays'.
+Create a buffer called 'deep objects'.
+Create a buffer called 'deeper objects'.
+a number called level is 1.
+While level is less than or equal to 64, append "[" to 'deep arrays', append "{{\"a\":" to 'deep objects', increment level.
+append "1" to 'deep arrays'.
+append "1" to 'deep objects'.
+set level to 1.
+While level is less than or equal to 64, append "]" to 'deep arrays', append "}}" to 'deep objects', increment level.
+set level to 1.
+While level is less than or equal to 65, append "[" to 'deeper arrays', append "{{\"a\":" to 'deeper objects', increment level.
+append "1" to 'deeper arrays'.
+append "1" to 'deeper objects'.
+set level to 1.
+While level is less than or equal to 65, append "]" to 'deeper arrays', append "}}" to 'deeper objects', increment level.
+'must accept' with "ten arrays deep" and "[[[[[[[[[[1]]]]]]]]]]".
+'must accept' with "sixty-four arrays deep" and "{'deep arrays'}".
+'must refuse' with "sixty-five arrays deep" and "{'deeper arrays'}".
+'must accept' with "sixty-four objects deep" and "{'deep objects'}".
+'must refuse' with "sixty-five objects deep" and "{'deeper objects'}".
+a map called 'a map that holds itself' is {{}}.
+Set 'a map that holds itself's "self" to 'a map that holds itself'.
+check with "a map that holds itself writes nothing" and "" and {'to json' of 'a map that holds itself'}.
+a list called 'a list that holds itself' is [].
+append 'a list that holds itself' to 'a list that holds itself'.
+check with "a list that holds itself writes nothing" and "" and {'to json' of 'a list that holds itself'}.
+
+Print "-- laying a document out --".
+a text called 'the compact document' is "{{\"name\":\"Ada\",\"tags\":[\"x\",\"y\"],\"here\":{{}},\"none\":[],\"score\":9.5}}".
+a value called 'the document' is 'from json' of 'the compact document'.
+a text called 'laid out by two' is "{{\n  \"name\": \"Ada\",\n  \"tags\": [\n    \"x\",\n    \"y\"\n  ],\n  \"here\": {{}},\n  \"none\": [],\n  \"score\": 9.5\n}}".
+check with "indented by two" and 'laid out by two' and {'to json with indent' of 'the document' and 2}.
+a text called 'laid out by four' is "{{\n    \"name\": \"Ada\",\n    \"tags\": [\n        \"x\",\n        \"y\"\n    ],\n    \"here\": {{}},\n    \"none\": [],\n    \"score\": 9.5\n}}".
+check with "indented by four" and 'laid out by four' and {'to json with indent' of 'the document' and 4}.
+a text called 'laid out by none' is "{{\n\"name\": \"Ada\",\n\"tags\": [\n\"x\",\n\"y\"\n],\n\"here\": {{}},\n\"none\": [],\n\"score\": 9.5\n}}".
+check with "a width of zero still breaks the lines" and 'laid out by none' and {'to json with indent' of 'the document' and 0}.
+check with "a width below zero reads as zero" and 'laid out by none' and {'to json with indent' of 'the document' and -3}.
+check with "an empty object stays on one line" and "{{}}" and {'to json with indent' of {{}} and 2}.
+check with "an empty array stays on one line" and "[]" and {'to json with indent' of [] and 2}.
+check with "a number has no layout to give it" and "42" and {'to json with indent' of 42 and 2}.
+check with "a text has no layout to give it" and "\"plain\"" and {'to json with indent' of "plain" and 2}.
+check with "nothing has no layout to give it" and "null" and {'to json with indent' of nothing and 2}.
+a text called 'a nested layout' is "[\n  1,\n  [\n    2\n  ]\n]".
+check with "an array inside an array" and 'a nested layout' and {'to json with indent' of [1, [2]] and 2}.
+a text called 'the laid-out document' is 'to json with indent' of 'the document' and 2.
+check with "a laid-out document reads back the same" and 'the compact document' and {'read back' with 'the laid-out document'}.
+'must accept' with "a laid-out document is a document" and 'the laid-out document'.
+check with "'to json' is untouched by all this" and 'the compact document' and {'to json' of 'the document'}.
+
+Print "-- round trips --".
+'must round trip' with "a whole number" and "42".
+'must round trip' with "a decimal" and "3.5".
+'must round trip' with "a text" and "\"plain\"".
+'must round trip' with "escapes of every kind" and "\"\\\"\\\\\\b\\f\\n\\r\\t\"".
+'must round trip' with "a hex escape that has to stay one" and "\"\\u0001\"".
+'must round trip' with "letters above ASCII" and "\"café中😀\"".
+'must round trip' with "a realistic document" and "{{\"a\":1,\"b\":[1,2],\"c\":{{\"d\":null}},\"e\":\"f\",\"g\":true,\"h\":-2.5}}".
+'must round trip' with "a document of nothing but empties" and "[[],{{}},[{{}}],{{\"a\":[]}}]".
+a text called 'twice round' is 'read back' with {'read back' with "{{\"a\":[1,\"two\",null,true]}}"}.
+check with "reading and writing twice changes nothing" and "{{\"a\":[1,\"two\",null,true]}}" and 'twice round'.
+
+Print "{'assertions made'} assertions, {failures} failures".
+If failures is greater than 0 then, exit 1.

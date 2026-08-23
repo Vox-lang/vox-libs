@@ -1,0 +1,680 @@
+(json - JSON serialisation and deserialisation for Vox.
+
+ Two functions carry the whole library, and they are each other's inverse:
+
+   'to json' of <anything>   builds the JSON text for a Vox value
+   'from json' of <text>     builds the Vox value for a JSON text
+
+ They are Python's json.dumps and json.loads in Vox's voice. Two more stand
+ beside them:
+
+   'to json with indent' of <anything> and <spaces>
+                             the same text, laid out to be read
+   'reads as json' of <text> is this text one complete JSON document?
+
+ Those four are the library. Everything else in this file is a step of one
+ of them - Vox has no visibility control, so the rest is exported too, but
+ nothing outside those four is meant to be called.
+
+ The shapes correspond one for one:
+
+   JSON object   <->  map          JSON string  <->  text
+   JSON array    <->  list         JSON number  <->  number or decimal
+   true / false  <->  boolean      null         <->  nothing
+
+ COMPACT OR LAID OUT. 'to json' writes the tightest document there is: no
+ space anywhere that JSON does not require one. 'to json with indent' writes
+ the same document with each member on its own line, indented by that many
+ spaces for every level it is inside, and a space after each colon - the
+ layout Python's json.dumps(indent=n) produces, so the two agree byte for
+ byte:
+
+   'to json' of person
+     {"name":"Ada","tags":["x","y"],"here":{},"score":9.5}
+
+   'to json with indent' of person and 2
+     {
+       "name": "Ada",
+       "tags": [
+         "x",
+         "y"
+       ],
+       "here": {},
+       "score": 9.5
+     }
+
+ An empty object and an empty array stay on one line, having nothing to put
+ on a second. A width of 0 still breaks the lines, it just does not indent
+ them; a negative width is read as 0. Both forms parse back to the same
+ value, and whitespace between tokens is exactly what 'from json' is built
+ to ignore.
+
+ A JSON number becomes a Vox number when it is written as a plain integer
+ of eighteen digits or fewer, and a decimal when it carries a fraction, an
+ exponent, or more digits than a Vox number can hold. That rule is written
+ where it is applied, in 'read a number'.
+
+ WHEN A DOCUMENT IS MALFORMED 'from json' hands back nothing and raises the
+ error flag. It never prints and it never exits: a library that writes to
+ your output is a library you cannot use.
+
+ ASK 'reads as json' FIRST when the difference matters. Two reasons, and
+ the second is the important one:
+
+   - nothing is also the honest answer for the document `null`, so the
+     answer alone cannot tell a malformed document from a null one;
+   - the error flag does not cross out of a shared object on vox 0.4.10. A
+     .so carries its own copy of the Vox runtime, so the flag this library
+     raises is not the flag your program's `On error` reads. Raised it is,
+     and an `On error` does catch it when this file is pulled in as source
+     with `see "./json.vox".` - but a program that links libjson.so will
+     never see it. Until that is settled, this is the pattern that works
+     everywhere:
+
+       If 'reads as json' of source then,
+         a value called settings is 'from json' of source.
+       Otherwise, Print "{Program}: that was not JSON".
+
+ 'to json' has no such trouble: it answers the empty text on failure, and
+ the empty text is not a JSON document, so the answer says it plainly.
+
+ These are the malformations detected:
+
+   - a document that runs out before its value is complete
+   - anything after the value but whitespace (trailing garbage)
+   - an object key that is not a quoted string, or a missing colon
+   - a missing comma, or a closing brace or bracket that never comes
+   - a raw control byte inside a string (JSON requires it be escaped)
+   - an escape that is not one of \" \\ \/ \b \f \n \r \t \uXXXX
+   - a \u escape with fewer than four hexadecimal digits
+   - a lone surrogate: half a character with no other half after it
+   - \u0000, which a Vox text cannot hold: see 'read a unicode escape into'
+   - a number with no digits, a leading zero, or a bare decimal point
+   - a number too large or too small for a decimal to hold
+   - nesting deeper than 64 levels, in either direction
+
+ Build and consume:
+   vox json.vox --shared -o libjson.so
+   see json version "0.1" from "./libjson.lib".)
+
+Library json version "0.1".
+
+(Raising the error flag is something Vox gives an operation, not a
+ statement, so the library performs the one operation whose only job here
+ is to fail: reading a number out of text that is not a number. It has to
+ be the last thing done before returning, because the next arithmetic or
+ collection read clears the flag again.)
+To 'raise the error flag'.
+  a number called 'a number this plainly is not' is "malformed" as a number.
+
+(One byte onto the end of a buffer. Writing one past the end is what grows
+ a dynamic buffer, so this needs no scratch of its own.)
+To 'write the byte' with a number called 'the byte to write' and a buffer called output.
+  set byte {output's size add 1} of output to 'the byte to write'.
+
+(True when the byte is a space, a tab, a newline, or a carriage return -
+ the four JSON allows between one token and the next.)
+To 'is whitespace' of a number called 'the byte'.
+  Return a boolean, 'the byte' is ' ' or 'the byte' is '\t' or 'the byte' is '\n' or 'the byte' is '\r'.
+
+(--- Serialising: a Vox value in, JSON text out ---------------------------)
+
+(json.dumps. Builds the JSON text for any value: a number, a decimal, a
+ text, a boolean, nothing, a list, or a map, nested as deeply as you like
+ down to 64 levels. A map's entries come out in the order 's keys gives
+ them, which is the order they were inserted, so a document that went
+ through 'from json' comes back out in the order it was written.
+
+ This is the compact form - no space anywhere JSON does not require one,
+ which is what a document on the wire or in a file should be. For a
+ document a person has to read, see 'to json with indent'.
+
+ A decimal is written the way Vox writes one: fifteen digits after the
+ point, with trailing zeros trimmed but never the last. Two consequences
+ worth knowing before you trust a round trip - a decimal needing more than
+ fifteen places to be written exactly is written rounded, and one smaller
+ than a thousandth of a millionth of a millionth is written as 0.0.
+
+ Raises the error flag and answers the empty text if the value is nested
+ deeper than 64 levels, which is also what a value holding itself does.)
+To 'to json' of a value called data.
+  Return a text, 'the json for' with data and 0 and false.
+
+(json.dumps with indent. The same document as 'to json', laid out to be
+ read: every member of an object or an array on its own line, indented by
+ 'how wide' spaces for each level it is inside, and a space after each
+ colon. An empty object and an empty array stay on one line. A width below
+ zero is read as zero, which breaks the lines without indenting them.
+
+ The text this writes parses back to the value it was given, so a document
+ laid out for a person to read is still a document a program can read.)
+To 'to json with indent' of a value called data and a number called 'how wide'.
+  a number called 'spaces per level' is 'how wide'.
+  If 'spaces per level' is less than 0 then, set 'spaces per level' to 0.
+  Return a text, 'the json for' with data and 'spaces per level' and true.
+
+(What both of them do, once the layout is decided.)
+To 'the json for' with a value called data and a number called 'spaces per level' and a boolean called 'it is laid out'.
+  Create a buffer called output.
+  a map called writer is {"depth": 0, "failed": false, "indent": 'spaces per level', "laid out": 'it is laid out'}.
+  'write a value' with data and output and writer.
+  a boolean called 'the value could not be written' is writer's "failed".
+  If 'the value could not be written' then, 'raise the error flag', Return a text, "".
+  a text called document is "{output}".
+  Return a text, document.
+
+(A newline and the indent for a line at this depth - and nothing at all
+ when the writer is writing the compact form, which is what keeps one set
+ of writers serving both.)
+To 'break the line at' with a number called depth and a buffer called output and a map called writer.
+  a boolean called 'it is laid out' is writer's "laid out".
+  If 'it is laid out' is false then, Return.
+  a number called 'spaces per level' is writer's "indent".
+  a number called 'spaces to write' is depth multiply 'spaces per level'.
+  'write the byte' with '\n' and output.
+  Repeat 'spaces to write' times, 'write the byte' with ' ' and output.
+
+(A laid-out document puts a space after the colon; a compact one does not.)
+To 'write the space after a colon' with a buffer called output and a map called writer.
+  a boolean called 'it is laid out' is writer's "laid out".
+  If 'it is laid out' then, 'write the byte' with ' ' and output.
+
+(One value onto the end of output, whatever it turns out to be. The writer
+ map carries how deep we are and whether we have given up, so that a value
+ that contains itself stops at 64 levels instead of running out of stack.)
+To 'write a value' with a value called data and a buffer called output and a map called writer.
+  a boolean called 'we have given up' is writer's "failed".
+  If 'we have given up' then, Return.
+  a number called depth is writer's "depth".
+  If depth is greater than 64 then, Set writer's "failed" to true, Return.
+  If data is nothing then, append "null" to output, Return.
+  If data is a boolean then, 'write a boolean' with data and output, Return.
+  If data is a number then, append "{data}" to output, Return.
+  If data is a decimal then, append "{data}" to output, Return.
+  If data is a text then, a text called words is data, 'write escaped text' with words and output, Return.
+  Set writer's "depth" to depth add 1.
+  If data is a list then, a list called items is data, 'write an array' with items and output and writer.
+  If data is a map then, a map called object is data, 'write an object' with object and output and writer.
+  Set writer's "depth" to depth.
+
+(JSON spells its booleans out, where Vox prints them as 1 and 0.)
+To 'write a boolean' with a value called data and a buffer called output.
+  a boolean called 'it is true' is data.
+  append "false" to output, but if 'it is true' append "true" to output.
+
+(An array: its elements in order, commas between them and none on the ends.
+ The writer's depth is already the depth of the elements, so the closing
+ bracket goes back one level to line up with whatever opened this array.)
+To 'write an array' with a list called items and a buffer called output and a map called writer.
+  a number called 'how many' is items's length.
+  a number called depth is writer's "depth".
+  'write the byte' with '[' and output.
+  For each position from 1 to 'how many',
+    a value called held is element position of items,
+    if position is greater than 1 then, 'write the byte' with ',' and output.
+    'break the line at' with depth and output and writer,
+    'write a value' with held and output and writer.
+  If 'how many' is greater than 0 then, 'break the line at' with {depth subtract 1} and output and writer.
+  'write the byte' with ']' and output.
+
+(An object: its entries in 's keys order, each one a quoted name, a colon,
+ and the value it holds. An empty object stays as the two braces, having
+ nothing to put on a line of its own.)
+To 'write an object' with a map called object and a buffer called output and a map called writer.
+  a list called names is object's keys.
+  a number called 'how many' is names's length.
+  a number called depth is writer's "depth".
+  'write the byte' with '{' and output.
+  For each position from 1 to 'how many',
+    a text called name is element position of names,
+    a value called held is object's "{name}",
+    if position is greater than 1 then, 'write the byte' with ',' and output.
+    'break the line at' with depth and output and writer,
+    'write escaped text' with name and output,
+    'write the byte' with ':' and output,
+    'write the space after a colon' with output and writer,
+    'write a value' with held and output and writer.
+  If 'how many' is greater than 0 then, 'break the line at' with {depth subtract 1} and output and writer.
+  'write the byte' with '}' and output.
+
+(Backspace and form feed are written 8 and 12 below rather than as
+ character literals: Vox has a literal for \n, \r and \t, but '\b' is the
+ letter b and '\f' is the letter f, which would compile and be wrong.
+
+ A JSON string: the text in quotes, with the seven characters JSON gives a
+ letter of their own written that way, every other control byte written as
+ \u00XX, and everything else - the bytes of any letter above ASCII
+ included - passed through as it stands. The forward slash is left alone:
+ JSON allows it escaped or bare, and bare is what a reader expects to see.)
+To 'write escaped text' with a text called words and a buffer called output.
+  a buffer called letters is "{words}".
+  a number called last is letters's size.
+  a number called 'the byte' is 0.
+  a number called 'the letter it escapes to' is 0.
+  'write the byte' with '"' and output.
+  For each position from 1 to last,
+    set 'the byte' to byte position of letters,
+    set 'the letter it escapes to' to 0,
+    if 'the byte' is '"' then, set 'the letter it escapes to' to '"'.
+    if 'the byte' is '\\' then, set 'the letter it escapes to' to '\\'.
+    if 'the byte' is 8 then, set 'the letter it escapes to' to 'b'.
+    if 'the byte' is 12 then, set 'the letter it escapes to' to 'f'.
+    if 'the byte' is '\n' then, set 'the letter it escapes to' to 'n'.
+    if 'the byte' is '\r' then, set 'the letter it escapes to' to 'r'.
+    if 'the byte' is '\t' then, set 'the letter it escapes to' to 't'.
+    if 'the letter it escapes to' is not 0 then, 'write the byte' with '\\' and output, 'write the byte' with 'the letter it escapes to' and output.
+    if 'the letter it escapes to' is 0 and 'the byte' is less than 32 then, 'write a hex escape for' with 'the byte' and output.
+    if 'the letter it escapes to' is 0 and 'the byte' is greater than 31 then, 'write the byte' with 'the byte' and output..
+  'write the byte' with '"' and output.
+
+(\u00XX for a control byte with no letter of its own. Only bytes below 32
+ reach here, so two hexadecimal digits are always enough.)
+To 'write a hex escape for' with a number called 'the byte' and a buffer called output.
+  append "\\u00" to output.
+  'write the byte' with {'the hex digit for' of {'the byte' bit-shift-right 4}} and output.
+  'write the byte' with {'the hex digit for' of {'the byte' bit-and 15}} and output.
+
+(One hexadecimal digit for four bits, which is what a hexadecimal digit is.)
+To 'the hex digit for' of a number called 'the four bits'.
+  If 'the four bits' is less than 10 then, Return a number, '0' add 'the four bits'.
+  Return a number, 'a' add 'the four bits' subtract 10.
+
+(--- Deserialising: JSON text in, a Vox value out -------------------------)
+
+(The reader is a map, because a map parameter is the caller's map: every
+ step below can move it on and every caller sees where it got to. It holds
+ three things - "position", the byte it is looking at, counting from 1;
+ "depth", how many objects and arrays it is inside; and "failed", which
+ once true stays true and stops every step that follows.)
+
+(json.loads. Reads one complete JSON document and answers the Vox value it
+ describes: an object becomes a map, an array a list, a string a text, a
+ number a number or a decimal, true and false a boolean, and null nothing.
+ Whitespace is allowed anywhere JSON allows it. If the text is not one
+ complete document - malformed, cut short, or with anything but whitespace
+ left over - the answer is nothing and the error flag goes up, though see
+ the note at the top of this file about the flag and a shared object: ask
+ 'reads as json' when the difference has to be certain.)
+To 'from json' of a text called source.
+  a buffer called document is "{source}".
+  a map called reader is {"position": 1, "depth": 0, "failed": false}.
+  a value called held is 'read the whole document' with document and reader.
+  a boolean called 'the document was malformed' is reader's "failed".
+  If 'the document was malformed' then, 'raise the error flag', Return a value, nothing.
+  Return a value, held.
+
+(Does this text read as one complete JSON document? Asks exactly what
+ 'from json' asks, and answers yes or no instead of a value, so that a
+ malformed document and the document `null` stop looking alike. Reads the
+ document a second time, so ask it of text you doubt rather than of every
+ text you have.)
+To 'reads as json' of a text called source.
+  a buffer called document is "{source}".
+  a map called reader is {"position": 1, "depth": 0, "failed": false}.
+  a value called held is 'read the whole document' with document and reader.
+  a boolean called 'the document was malformed' is reader's "failed".
+  Return a boolean, 'the document was malformed' is false.
+
+(One value and then the end of the text. Anything left over but whitespace
+ means the text held more than the one document it was asked for.)
+To 'read the whole document' with a buffer called document and a map called reader.
+  a value called held is 'read a value' with document and reader.
+  'skip whitespace' with document and reader.
+  a number called 'where the reader stopped' is reader's "position".
+  If 'where the reader stopped' is less than or equal to document's size then, Set reader's "failed" to true.
+  Return a value, held.
+
+(One value, whatever it turns out to be, with the nesting counted so that a
+ document built to exhaust the stack is refused instead.)
+To 'read a value' with a buffer called document and a map called reader.
+  a boolean called 'we have given up' is reader's "failed".
+  If 'we have given up' then, Return a value, nothing.
+  a number called depth is reader's "depth".
+  If depth is greater than 64 then, Set reader's "failed" to true, Return a value, nothing.
+  Set reader's "depth" to depth add 1.
+  a value called held is 'read whatever is next' with document and reader.
+  Set reader's "depth" to depth.
+  Return a value, held.
+
+(Which of the six kinds of JSON value is coming is settled by its first
+ byte, and JSON is designed so that one byte is always enough.)
+To 'read whatever is next' with a buffer called document and a map called reader.
+  'skip whitespace' with document and reader.
+  a number called 'the byte' is 'the byte at' with document and reader.
+  If 'the byte' is '{' then, Return 'read an object' with document and reader.
+  If 'the byte' is '[' then, Return 'read an array' with document and reader.
+  If 'the byte' is '"' then, Return 'read a text' with document and reader.
+  If 'the byte' is 't' or 'the byte' is 'f' or 'the byte' is 'n' then, Return 'read a keyword' with document and reader.
+  If 'the byte' is '-' then, Return 'read a number' with document and reader.
+  If 'the byte' is greater than or equal to '0' and 'the byte' is less than or equal to '9' then, Return 'read a number' with document and reader.
+  Set reader's "failed" to true.
+  Return a value, nothing.
+
+(The byte the reader is looking at, or 0 once the document has run out.)
+To 'the byte at' with a buffer called document and a map called reader.
+  a number called position is reader's "position".
+  If position is less than 1 then, Return a number, 0.
+  If position is greater than document's size then, Return a number, 0.
+  Return a number, byte position of document.
+
+(Move the reader on by one byte.)
+To 'step past the byte' with a map called reader.
+  a number called position is reader's "position".
+  Set reader's "position" to position add 1.
+
+(Move the reader on past whatever space, tab, newline, and carriage return
+ it is standing in. JSON allows those four between any two tokens.)
+To 'skip whitespace' with a buffer called document and a map called reader.
+  a number called position is reader's "position".
+  a number called last is document's size.
+  a number called 'the byte' is 0.
+  a boolean called 'still on whitespace' is true.
+  While 'still on whitespace' and position is less than or equal to last,
+    set 'the byte' to byte position of document,
+    set 'still on whitespace' to 'is whitespace' of 'the byte',
+    if 'still on whitespace' then, increment position..
+  Set reader's "position" to position.
+
+(Does the document read `word` where the reader is standing? If it does the
+ reader steps past it; if it does not the reader has not moved, so a caller
+ can try another word.)
+To 'the document reads' with a buffer called document and a map called reader and a text called word.
+  a buffer called wanted is "{word}".
+  a number called 'letters wanted' is wanted's size.
+  a number called position is reader's "position".
+  a number called 'letters left' is {document's size subtract position} add 1.
+  If 'letters left' is less than 'letters wanted' then, Return a boolean, false.
+  a number called 'letters matched' is 0.
+  a boolean called 'still matching' is true.
+  a number called 'the byte found' is 0.
+  a number called 'the byte wanted' is 0.
+  While 'still matching' and 'letters matched' is less than 'letters wanted',
+    set 'the byte found' to byte {position add 'letters matched'} of document,
+    set 'the byte wanted' to byte {'letters matched' add 1} of wanted,
+    set 'still matching' to false,
+    if 'the byte found' is 'the byte wanted' then, set 'still matching' to true.
+    if 'still matching' then, increment 'letters matched'..
+  If 'still matching' then, Set reader's "position" to position add 'letters matched'.
+  Return a boolean, 'still matching'.
+
+(true, false, and null are the only bare words JSON has, and they are
+ spelt in lower case only.)
+To 'read a keyword' with a buffer called document and a map called reader.
+  a boolean called 'it says true' is 'the document reads' with document and reader and "true".
+  If 'it says true' then, Return a value, true.
+  a boolean called 'it says false' is 'the document reads' with document and reader and "false".
+  If 'it says false' then, Return a value, false.
+  a boolean called 'it says null' is 'the document reads' with document and reader and "null".
+  If 'it says null' then, Return a value, nothing.
+  Set reader's "failed" to true.
+  Return a value, nothing.
+
+(An object: pairs of a quoted name and a value, commas between them, until
+ the closing brace. The reader is standing on the opening brace.)
+To 'read an object' with a buffer called document and a map called reader.
+  a map called object is {}.
+  a number called 'the separator' is 0.
+  a boolean called 'there are more pairs' is true.
+  'step past the byte' with reader.
+  'skip whitespace' with document and reader.
+  a number called 'the byte' is 'the byte at' with document and reader.
+  If 'the byte' is '}' then, 'step past the byte' with reader, Return a value, object.
+  While 'there are more pairs',
+    'read a pair into' with object and document and reader,
+    set 'there are more pairs' to false,
+    set 'the separator' to 0,
+    if reader's "failed" is false then, 'skip whitespace' with document and reader, set 'the separator' to 'the byte at' with document and reader, 'step past the byte' with reader.
+    if 'the separator' is ',' then, set 'there are more pairs' to true..
+  If 'the separator' is not '}' then, Set reader's "failed" to true, Return a value, nothing.
+  Return a value, object.
+
+(One "name": value pair, added to the object. A name has to be a quoted
+ string - JSON has no bare keys - and a colon has to follow it.)
+To 'read a pair into' with a map called object and a buffer called document and a map called reader.
+  'skip whitespace' with document and reader.
+  a number called 'the byte' is 'the byte at' with document and reader.
+  If 'the byte' is not '"' then, Set reader's "failed" to true, Return.
+  a value called name is 'read a text' with document and reader.
+  a boolean called 'the name was unreadable' is reader's "failed".
+  If 'the name was unreadable' then, Return.
+  a text called key is name.
+  'skip whitespace' with document and reader.
+  set 'the byte' to 'the byte at' with document and reader.
+  If 'the byte' is not ':' then, Set reader's "failed" to true, Return.
+  'step past the byte' with reader.
+  a value called held is 'read a value' with document and reader.
+  a boolean called 'the value was unreadable' is reader's "failed".
+  If 'the value was unreadable' then, Return.
+  Set object's "{key}" to held.
+
+(An array: values with commas between them, until the closing bracket. The
+ reader is standing on the opening bracket.)
+To 'read an array' with a buffer called document and a map called reader.
+  a list called items is [].
+  a number called 'the separator' is 0.
+  a boolean called 'there are more elements' is true.
+  a value called held is nothing.
+  'step past the byte' with reader.
+  'skip whitespace' with document and reader.
+  a number called 'the byte' is 'the byte at' with document and reader.
+  If 'the byte' is ']' then, 'step past the byte' with reader, Return a value, items.
+  While 'there are more elements',
+    set held to 'read a value' with document and reader,
+    set 'there are more elements' to false,
+    set 'the separator' to 0,
+    if reader's "failed" is false then, append held to items, 'skip whitespace' with document and reader, set 'the separator' to 'the byte at' with document and reader, 'step past the byte' with reader.
+    if 'the separator' is ',' then, set 'there are more elements' to true..
+  If 'the separator' is not ']' then, Set reader's "failed" to true, Return a value, nothing.
+  Return a value, items.
+
+(A string: everything between the quotes, with each escape turned back into
+ what it stands for. A byte below 32 inside a string is malformed - JSON
+ requires a control character be written as an escape - and that is also
+ how a document that stops in the middle of a string is caught, since a
+ document that has run out reads as the byte 0.)
+To 'read a text' with a buffer called document and a map called reader.
+  Create a buffer called letters.
+  a number called 'the byte' is 0.
+  a boolean called 'inside the quotes' is true.
+  a boolean called 'the text is broken' is false.
+  a boolean called 'the byte stands for itself' is false.
+  'step past the byte' with reader.
+  While 'inside the quotes' and 'the text is broken' is false,
+    set 'the byte' to 'the byte at' with document and reader,
+    set 'the byte stands for itself' to false,
+    if 'the byte' is less than 32 then, set 'the text is broken' to true.
+    if 'the byte' is '"' then, 'step past the byte' with reader, set 'inside the quotes' to false.
+    if 'the byte' is '\\' then, 'read an escape into' with letters and document and reader, set 'the text is broken' to reader's "failed".
+    if 'the byte' is greater than 31 and 'the byte' is not '"' and 'the byte' is not '\\' then, set 'the byte stands for itself' to true.
+    if 'the byte stands for itself' then, 'write the byte' with 'the byte' and letters, 'step past the byte' with reader..
+  If 'the text is broken' then, Set reader's "failed" to true, Return a value, nothing.
+  a text called words is "{letters}".
+  Return a value, words.
+
+(The reader is standing on a backslash. JSON gives eight characters a
+ letter of their own and everything else the \uXXXX form; anything after
+ the backslash that is neither is malformed.)
+To 'read an escape into' with a buffer called letters and a buffer called document and a map called reader.
+  'step past the byte' with reader.
+  a number called 'the escape' is 'the byte at' with document and reader.
+  'step past the byte' with reader.
+  If 'the escape' is '"' then, 'write the byte' with '"' and letters, Return.
+  If 'the escape' is '\\' then, 'write the byte' with '\\' and letters, Return.
+  If 'the escape' is '/' then, 'write the byte' with '/' and letters, Return.
+  If 'the escape' is 'b' then, 'write the byte' with 8 and letters, Return.
+  If 'the escape' is 'f' then, 'write the byte' with 12 and letters, Return.
+  If 'the escape' is 'n' then, 'write the byte' with '\n' and letters, Return.
+  If 'the escape' is 'r' then, 'write the byte' with '\r' and letters, Return.
+  If 'the escape' is 't' then, 'write the byte' with '\t' and letters, Return.
+  If 'the escape' is 'u' then, 'read a unicode escape into' with letters and document and reader, Return.
+  Set reader's "failed" to true.
+
+(\uXXXX names a character by its number, and the reader has just stepped
+ past the u. A character above U+FFFF has no four-digit number, so JSON
+ writes it as two escapes in a row - a leading half from D800 to DBFF and
+ a trailing half from DC00 to DFFF - which this puts back together. Half a
+ character on its own, either half, is malformed.
+
+ \u0000 is refused, though JSON allows it. A Vox text ends at its first
+ zero byte, so a text holding U+0000 would come back cut short at it, and
+ every character after it would be gone with no sign that it had ever been
+ there. Refusing the document says so; truncating it would not.)
+To 'read a unicode escape into' with a buffer called letters and a buffer called document and a map called reader.
+  a number called codepoint is 'the four hex digits at' with document and reader.
+  If codepoint is less than 0 then, Set reader's "failed" to true, Return.
+  If codepoint is 0 then, Set reader's "failed" to true, Return.
+  If codepoint is greater than or equal to 0xDC00 and codepoint is less than or equal to 0xDFFF then, Set reader's "failed" to true, Return.
+  a boolean called 'it is the leading half' is false.
+  If codepoint is greater than or equal to 0xD800 and codepoint is less than or equal to 0xDBFF then, set 'it is the leading half' to true.
+  If 'it is the leading half' is false then, 'write the utf8 for' with codepoint and letters, Return.
+  a boolean called 'the other half follows' is 'the document reads' with document and reader and "\\u".
+  If 'the other half follows' is false then, Set reader's "failed" to true, Return.
+  a number called 'the trailing half' is 'the four hex digits at' with document and reader.
+  If 'the trailing half' is less than 0xDC00 then, Set reader's "failed" to true, Return.
+  If 'the trailing half' is greater than 0xDFFF then, Set reader's "failed" to true, Return.
+  a number called 'the whole character' is 0x10000 add {{codepoint subtract 0xD800} multiply 1024} add {'the trailing half' subtract 0xDC00}.
+  'write the utf8 for' with 'the whole character' and letters.
+
+(Four hexadecimal digits read as one number, the reader stepping past each.
+ Answers -1 when four of them are not there, which is how a \u escape cut
+ short is caught. The digits are gathered and then cast, because base
+ sixteen is a reading Vox already does: 'as a hex number' is the same cast
+ that reads the exponent in 'the exponent at', told which base to read in.
+ The gathering still has to say which bytes are hexadecimal digits, since
+ that cast stops at the first byte that is not one rather than refusing
+ the escape.)
+To 'the four hex digits at' with a buffer called document and a map called reader.
+  Create a buffer called digits.
+  a number called 'the byte' is 0.
+  a boolean called 'still on a hex digit' is true.
+  While 'still on a hex digit' and digits's size is less than 4,
+    set 'the byte' to 'the byte at' with document and reader,
+    set 'still on a hex digit' to false,
+    if 'the byte' is greater than or equal to '0' and 'the byte' is less than or equal to '9' then, set 'still on a hex digit' to true.
+    if 'the byte' is greater than or equal to 'a' and 'the byte' is less than or equal to 'f' then, set 'still on a hex digit' to true.
+    if 'the byte' is greater than or equal to 'A' and 'the byte' is less than or equal to 'F' then, set 'still on a hex digit' to true.
+    if 'still on a hex digit' then, 'write the byte' with 'the byte' and digits, 'step past the byte' with reader..
+  If 'still on a hex digit' is false then, Return a number, -1.
+  a text called figures is "{digits}".
+  Return a number, figures as a hex number.
+
+(A character's number written out as UTF-8, which is how Vox holds text:
+ one byte below 128, and two, three, or four as it grows.)
+To 'write the utf8 for' with a number called codepoint and a buffer called letters.
+  If codepoint is less than 0x80 then, 'write the byte' with codepoint and letters, Return.
+  If codepoint is less than 0x800 then, 'write the byte' with {0xC0 bit-or {codepoint bit-shift-right 6}} and letters, 'write the byte' with {0x80 bit-or {codepoint bit-and 0x3F}} and letters, Return.
+  If codepoint is less than 0x10000 then, 'write the byte' with {0xE0 bit-or {codepoint bit-shift-right 12}} and letters, 'write the byte' with {0x80 bit-or {{codepoint bit-shift-right 6} bit-and 0x3F}} and letters, 'write the byte' with {0x80 bit-or {codepoint bit-and 0x3F}} and letters, Return.
+  'write the byte' with {0xF0 bit-or {codepoint bit-shift-right 18}} and letters.
+  'write the byte' with {0x80 bit-or {{codepoint bit-shift-right 12} bit-and 0x3F}} and letters.
+  'write the byte' with {0x80 bit-or {{codepoint bit-shift-right 6} bit-and 0x3F}} and letters.
+  'write the byte' with {0x80 bit-or {codepoint bit-and 0x3F}} and letters.
+
+(A number, by JSON's grammar and not by anything looser: an optional minus,
+ then either a single 0 or a digit from 1 to 9 with more behind it, then an
+ optional fraction, then an optional exponent. A leading zero, a bare
+ point, and a lone minus are all malformed, exactly as the grammar says.
+
+ WHICH VOX TYPE IT BECOMES. A number written as a plain integer of eighteen
+ digits or fewer becomes a Vox number, exactly. Eighteen is the last width
+ at which every integer fits: nineteen digits reach past what a Vox number
+ can hold, and would wrap round silently. Everything else - a fraction, an
+ exponent, or a longer integer - becomes a decimal, and a decimal keeps
+ about eighteen significant digits, so a longer number is the nearest
+ decimal to what was written rather than what was written.
+
+ The exponent is applied by moving the point rather than by multiplying, so
+ 1e2 reads as exactly 100.0 and not as 100.00000000000001. A number whose
+ point would move more than 400 places either way is outside what a decimal
+ can hold at all, and is malformed rather than quietly becoming zero or
+ infinity.)
+To 'read a number' with a buffer called document and a map called reader.
+  Create a buffer called digits.
+  a number called 'digits before the point' is 0.
+  a number called 'digits after the point' is 0.
+  a number called 'the exponent' is 0.
+  a boolean called 'it is below zero' is false.
+  a boolean called 'it has a fraction' is false.
+  a boolean called 'it has an exponent' is false.
+  a number called 'the byte' is 'the byte at' with document and reader.
+  If 'the byte' is '-' then, set 'it is below zero' to true, 'step past the byte' with reader.
+  set 'the byte' to 'the byte at' with document and reader.
+  If 'the byte' is '0' then, 'write the byte' with '0' and digits, 'step past the byte' with reader, set 'digits before the point' to 1.
+  If 'the byte' is not '0' then, set 'digits before the point' to 'take the digits into' with digits and document and reader.
+  If 'digits before the point' is 0 then, Set reader's "failed" to true, Return a value, nothing.
+  set 'the byte' to 'the byte at' with document and reader.
+  If 'the byte' is '.' then, set 'it has a fraction' to true, 'step past the byte' with reader, set 'digits after the point' to 'take the digits into' with digits and document and reader.
+  If 'it has a fraction' and 'digits after the point' is 0 then, Set reader's "failed" to true, Return a value, nothing.
+  set 'the byte' to 'the byte at' with document and reader.
+  If 'the byte' is 'e' or 'the byte' is 'E' then, set 'it has an exponent' to true, 'step past the byte' with reader.
+  If 'it has an exponent' then, set 'the exponent' to 'the exponent at' with document and reader.
+  a boolean called 'the exponent was unreadable' is reader's "failed".
+  If 'the exponent was unreadable' then, Return a value, nothing.
+  a number called 'how many digits' is digits's size.
+  a boolean called 'it is a plain integer' is false.
+  If 'it has a fraction' is false and 'it has an exponent' is false and 'how many digits' is less than or equal to 18 then, set 'it is a plain integer' to true.
+  If 'it is a plain integer' then, Return 'the whole number in' with digits and 'it is below zero'.
+  a number called 'the point position' is 'digits before the point' add 'the exponent'.
+  If 'the point position' is greater than 400 then, Set reader's "failed" to true, Return a value, nothing.
+  If 'the point position' is less than -400 then, Set reader's "failed" to true, Return a value, nothing.
+  Return 'the decimal in' with digits and 'the point position' and 'it is below zero'.
+
+(Every digit the reader is standing on, written into digits; answers how
+ many there were, which is 0 when the reader was not on a digit at all.)
+To 'take the digits into' with a buffer called digits and a buffer called document and a map called reader.
+  a number called 'how many' is 0.
+  a number called 'the byte' is 0.
+  a boolean called 'still on a digit' is true.
+  While 'still on a digit',
+    set 'the byte' to 'the byte at' with document and reader,
+    set 'still on a digit' to false,
+    if 'the byte' is greater than or equal to '0' and 'the byte' is less than or equal to '9' then, set 'still on a digit' to true.
+    if 'still on a digit' then, 'write the byte' with 'the byte' and digits, 'step past the byte' with reader, increment 'how many'..
+  Return a number, 'how many'.
+
+(What follows the e: an optional sign and then at least one digit. Five
+ digits is the most that can mean anything - a decimal runs out of range
+ three hundred and eight places from the point - so a longer one is
+ malformed rather than a number nobody can hold.)
+To 'the exponent at' with a buffer called document and a map called reader.
+  Create a buffer called digits.
+  a boolean called 'it is below zero' is false.
+  a number called 'the byte' is 'the byte at' with document and reader.
+  If 'the byte' is '-' then, set 'it is below zero' to true, 'step past the byte' with reader.
+  If 'the byte' is '+' then, 'step past the byte' with reader.
+  a number called 'how many' is 'take the digits into' with digits and document and reader.
+  If 'how many' is 0 then, Set reader's "failed" to true, Return a number, 0.
+  If 'how many' is greater than 5 then, Set reader's "failed" to true, Return a number, 0.
+  a text called figures is "{digits}".
+  a number called 'the exponent' is figures as a number.
+  If 'it is below zero' then, Return a number, 0 subtract 'the exponent'.
+  Return a number, 'the exponent'.
+
+(The digits read as a whole number, with the minus put back on.)
+To 'the whole number in' with a buffer called digits and a boolean called 'it is below zero'.
+  a text called figures is "{digits}".
+  a number called whole is figures as a number.
+  If 'it is below zero' then, Return a value, 0 subtract whole.
+  Return a value, whole.
+
+(The digits read as a decimal, with the point dropped in at the position
+ the exponent puts it. Writing the number out in full first and casting
+ that is what keeps 1e2 exactly 100.0: the point moves, nothing is
+ multiplied, and no rounding creeps in before Vox reads the decimal.)
+To 'the decimal in' with a buffer called digits and a number called 'the point position' and a boolean called 'it is below zero'.
+  Create a buffer called plain.
+  a number called 'how many digits' is digits's size.
+  a number called 'zeros before the digits' is 0.
+  a number called 'zeros after the digits' is 0.
+  If 'it is below zero' then, 'write the byte' with '-' and plain.
+  If 'the point position' is less than or equal to 0 then, append "0." to plain, set 'zeros before the digits' to 0 subtract 'the point position'.
+  Repeat 'zeros before the digits' times, 'write the byte' with '0' and plain.
+  For each position from 1 to 'how many digits',
+    if position is equal to {'the point position' add 1} and 'the point position' is greater than 0 then, 'write the byte' with '.' and plain.
+    'write the byte' with {byte position of digits} and plain.
+  If 'the point position' is greater than 'how many digits' then, set 'zeros after the digits' to 'the point position' subtract 'how many digits'.
+  Repeat 'zeros after the digits' times, 'write the byte' with '0' and plain.
+  If 'the point position' is greater than or equal to 'how many digits' then, append ".0" to plain.
+  a text called figures is "{plain}".
+  a float called 'the decimal' is figures as a float.
+  Return a value, 'the decimal'.
+
