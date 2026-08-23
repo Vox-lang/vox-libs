@@ -18,7 +18,7 @@
       {
         packages.default = pkgs.stdenv.mkDerivation {
           pname = "vox-libs";
-          version = "0.1.0";
+          version = "0.2.0";
           src = ./.;
 
           nativeBuildInputs = [ voxc pkgs.nasm pkgs.binutils ];
