@@ -1,5 +1,5 @@
 Name:           vox-libs
-Version:        0.1.0
+Version:        0.2.0
 Release:        1%{?dist}
 Summary:        Shared libraries for the Vox programming language
 
@@ -63,5 +63,8 @@ make install VOX=vox DESTDIR=%{buildroot} PREFIX=/usr \
 %{_libdir}/lib*.so
 
 %changelog
+* Sun Aug 23 2026 TheJostler <josj@tegosec.com> - 0.2.0-1
+- Add the json library: JSON serialisation and deserialisation in Vox
+
 * Tue Aug 18 2026 TheJostler <josj@tegosec.com> - 0.1.0-1
 - Initial packaging: textkit and process
