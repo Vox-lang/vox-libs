@@ -1,0 +1,83 @@
+(textkit's unit tests - the library gating itself, in this repo, with Vox
+ as its only dependency.
+
+ Where textkit_demo.vox shows the library being used, this shows it being
+ held to account: many small named claims, each one checked, and a tally
+ at the end. A claim that does not hold prints
+
+   ASSERT <name>: expected <x> got <y>
+
+ and the program exits 1, so `make test` fails on it. Nothing else is
+ printed but the section headings and the tally, which is why the expected
+ transcript is short: silence is the whole point of a passing test.
+
+ A list of text prints the way Vox writes the literal, brackets, quotes,
+ and all, which is what lets a list claim be checked as text just like
+ everything else.
+
+   vox textkit.vox --shared -o libtextkit.so
+   vox textkit_tests.vox --link textkit -o textkit_tests
+   ./textkit_tests)
+
+see textkit version "0.2" from "./libtextkit.lib".
+
+a number called 'assertions made' is 0.
+a number called failures is 0.
+
+(Every claim goes through here, so a failure always reads the same way and
+ the tally at the end is the whole verdict.)
+To check with a text called name and a text called wanted and a text called got.
+  increment 'assertions made'.
+  If got is wanted then, Return.
+  increment failures.
+  Print "ASSERT {name}: expected {wanted} got {got}".
+
+(The fields 'split on' found, written out the way Vox prints a list of
+ text, so the claim can be checked as text like everything else.)
+To 'split on for the tests' with a text called content and a text called separator.
+  a list called fields is 'split on' of content and separator.
+  Return a text, "{fields}".
+
+(The lines 'split lines' found, written out the same way.)
+To 'split lines for the tests' with a text called content.
+  a list called lines is 'split lines' of content.
+  Return a text, "{lines}".
+
+(Splitting content on separator and joining the fields back with the same
+ separator, so a round trip claim can compare texts.)
+To 'split on and rejoin' with a text called content and a text called separator.
+  a list called fields is 'split on' of content and separator.
+  Return a text, join of fields and separator.
+
+Print "-- split on --".
+check with "fields between plain separators" and "[\"a\", \"b\", \"c\"]" and {'split on for the tests' with "a,b,c" and ","}.
+check with "empty fields are kept" and "[\"a\", \"\", \"b\"]" and {'split on for the tests' with "a,,b" and ","}.
+check with "a trailing separator yields a trailing empty field" and "[\"a\", \"b\", \"\"]" and {'split on for the tests' with "a,b," and ","}.
+check with "a leading separator yields a leading empty field" and "[\"\", \"a\", \"b\"]" and {'split on for the tests' with ",a,b" and ","}.
+check with "the empty text splits into one empty field" and "[\"\"]" and {'split on for the tests' with "" and ","}.
+check with "an empty separator returns the whole text as one element" and "[\"a,b\"]" and {'split on for the tests' with "a,b" and ""}.
+check with "a separator longer than one byte" and "[\"a\", \"b\", \"c\"]" and {'split on for the tests' with "a::b::c" and "::"}.
+check with "consecutive separators keep every empty field between them" and "[\"a\", \"\", \"\", \"b\"]" and {'split on for the tests' with "a,,,b" and ","}.
+
+Print "-- split lines --".
+check with "one line per newline" and "[\"one\", \"two\", \"three\"]" and {'split lines for the tests' with "one\ntwo\nthree"}.
+check with "a trailing newline adds no trailing empty line" and "[\"one\", \"two\"]" and {'split lines for the tests' with "one\ntwo\n"}.
+check with "a carriage return right before the newline is dropped" and "[\"one\", \"two\"]" and {'split lines for the tests' with "one\r\ntwo\r\n"}.
+check with "a blank line survives between two others" and "[\"one\", \"\", \"two\"]" and {'split lines for the tests' with "one\n\ntwo"}.
+check with "the empty text has no lines" and "[]" and {'split lines for the tests' with ""}.
+check with "a carriage return not before a newline is not touched" and "[\"a\rb\", \"c\"]" and {'split lines for the tests' with "a\rb\nc"}.
+
+Print "-- replace --".
+check with "every occurrence is replaced left to right" and "bXXa" and {replace of "banana" and "an" and "X"}.
+check with "matches do not overlap" and "bb" and {replace of "aaaa" and "aa" and "b"}.
+check with "a needle that is not there leaves the text unchanged" and "hello" and {replace of "hello" and "z" and "X"}.
+check with "an empty needle returns the text unchanged" and "hello" and {replace of "hello" and "" and "X"}.
+check with "a needle at the very start" and "Xbc" and {replace of "abc" and "a" and "X"}.
+check with "a needle at the very end" and "abX" and {replace of "abc" and "c" and "X"}.
+
+Print "-- round trips --".
+check with "join of 'split on' is the original text" and "a,,b," and {'split on and rejoin' with "a,,b," and ","}.
+check with "the round trip holds even with an empty separator" and "a,b" and {'split on and rejoin' with "a,b" and ""}.
+
+Print "{'assertions made'} assertions, {failures} failures".
+If failures is greater than 0 then, exit 1.

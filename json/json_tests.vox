@@ -235,12 +235,9 @@ While level is less than or equal to 65, append "]" to 'deeper arrays', append "
 'must refuse' with "sixty-five arrays deep" and "{'deeper arrays'}".
 'must accept' with "sixty-four objects deep" and "{'deep objects'}".
 'must refuse' with "sixty-five objects deep" and "{'deeper objects'}".
-a map called 'a map that holds itself' is {{}}.
-Set 'a map that holds itself's "self" to 'a map that holds itself'.
-check with "a map that holds itself writes nothing" and "" and {'to json' of 'a map that holds itself'}.
-a list called 'a list that holds itself' is [].
-append 'a list that holds itself' to 'a list that holds itself'.
-check with "a list that holds itself writes nothing" and "" and {'to json' of 'a list that holds itself'}.
+(No self-holding claim: since register entry #111, storing a collection
+ into another collection copies it, so no Vox map or list can hold itself
+ any more, and there is nothing here for the depth guard to catch.)
 
 Print "-- laying a document out --".
 a text called 'the compact document' is "{{\"name\":\"Ada\",\"tags\":[\"x\",\"y\"],\"here\":{{}},\"none\":[],\"score\":9.5}}".

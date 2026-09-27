@@ -107,6 +107,9 @@ Set person's "active" to false.
 Set person's "nickname" to "the Enchantress of Number".
 Set person's "children" to 3.
 append "poet" to tags.
+(A list read out of a map is its own copy (register entry #111), so the
+ grown list has to be put back to reach person's own copy.)
+Set person's "tags" to tags.
 a float called 'the new score' is person's "score".
 Print "score is now {'the new score'}, tags number {tags's length}".
 
@@ -237,14 +240,11 @@ Print "nothing at all:       {'nothing at all'}".
 a value called 'the malformed answer' is 'from json' of "{{\"a\": 1".
 Print "and a malformed document answers: {'the malformed answer'}".
 
-(Nesting is allowed 64 levels deep, in either direction. Deeper than that
- is refused rather than run at until the stack gives out - which is also
- what happens to a value that contains itself.)
+(Nesting is allowed 64 levels deep, in either direction; deeper than that
+ is refused rather than run at until the stack gives out. Since register
+ entry #111, storing a collection into another collection copies it, so a
+ map or list can no longer hold itself - there is nothing left on that
+ front for the depth guard to catch.)
 Print "--- depth ---".
 a boolean called 'ten deep' is 'reads as json' of "[[[[[[[[[[1]]]]]]]]]]".
 Print "ten deep:      {'ten deep'}".
-a map called 'a map that holds itself' is {{}}.
-Set 'a map that holds itself's "self" to 'a map that holds itself'.
-a text called 'the impossible text' is 'to json' of 'a map that holds itself'.
-a buffer called 'how much came out' is "{'the impossible text'}".
-Print "a map holding itself writes {'how much came out''s size} bytes, and the program is still here".
