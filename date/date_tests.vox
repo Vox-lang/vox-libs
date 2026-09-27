@@ -1,0 +1,378 @@
+(date's unit tests - the library gating itself, in this repo, with Vox as
+ its only dependency, following the json library's own pattern exactly.
+
+ Every value GNU date can produce is taken from GNU: the command that
+ produced it sits beside the claim as a comment, run as
+
+   TZ=UTC LC_ALL=C date -u -d '<when>' '+<format>'
+
+ so the suite is a fidelity check against the reference and not against
+ the author's own reading of it. Two departures from GNU are documented
+ in README.md and tested against this library's OWN rule instead:
+ 'months later' and 'years later' clamp the day of month rather than
+ overflowing into the next month, and there is no time zone but UTC.
+
+   vox date.vox --shared -o libdate.so
+   vox date_tests.vox --link date -o date_tests
+   ./date_tests)
+
+see date version "0.1" from "./libdate.lib".
+
+a number called 'assertions made' is 0.
+a number called failures is 0.
+
+To check with a text called name and a text called wanted and a text called got.
+  increment 'assertions made'.
+  If got is wanted then, Return.
+  increment failures.
+  Print "ASSERT {name}: expected {wanted} got {got}".
+
+(A text literal cannot sit inside a format hole that is itself inside a
+ text literal - {'f' of "x"} cannot be written as "{'f' of "x"}" - so a
+ claim about a number or a boolean takes the values themselves, unquoted,
+ and stringifies them here instead of at the call site.)
+To 'check moment' with a text called name and a number called wanted and a number called got.
+  check with name and "{wanted}" and "{got}".
+
+To 'check boolean' with a text called name and a boolean called wanted and a boolean called got.
+  check with name and "{wanted}" and "{got}".
+
+Print "-- now --".
+a number called 'the current moment' is 'the moment now'.
+a boolean called 'it is after today started' is false.
+(the day this suite was written; a passing run can only be later)
+If 'the current moment' is greater than 1758931200 then, set 'it is after today started' to true.
+check with "the moment now is after 2026-09-27" and "1" and "{'it is after today started'}".
+a number called 'the moment now again' is 'the moment now'.
+a boolean called 'it did not go backwards' is false.
+If 'the moment now again' is greater than or equal to 'the current moment' then, set 'it did not go backwards' to true.
+check with "the moment now never goes backwards" and "1" and "{'it did not go backwards'}".
+
+Print "-- civil time to a moment --".
+(date -u -d '1970-01-01' +%s -> 0)
+check with "the moment of the epoch date" and "0" and "{'the moment of' with 1970 and 1 and 1}".
+(date -u -d '2026-07-29' +%s -> 1785283200)
+check with "the moment of 2026-07-29" and "1785283200" and "{'the moment of' with 2026 and 7 and 29}".
+(date -u -d '1969-12-31' +%s -> -86400)
+check with "the moment of the day before the epoch" and "-86400" and "{'the moment of' with 1969 and 12 and 31}".
+(date -u -d '2026-07-29 16:02:48' +%s -> 1785340968)
+check with "the moment at a clock time" and "1785340968" and "{'the moment at' with 2026 and 7 and 29 and 16 and 2 and 48}".
+(mktime-style overflow: day 0 is the last day of the previous month)
+check with "day 0 is the last day of the previous month" and "{'the moment of' with 1970 and 1 and 31}" and "{'the moment of' with 1970 and 2 and 0}".
+(day 32 of January is 1 February)
+check with "day 32 of january is 1 february" and "{'the moment of' with 1970 and 2 and 1}" and "{'the moment of' with 1970 and 1 and 32}".
+(month 13 is January of the next year)
+check with "month 13 is january of the next year" and "{'the moment of' with 1971 and 1 and 1}" and "{'the moment of' with 1970 and 13 and 1}".
+(month 0 is December of the previous year)
+check with "month 0 is december of the previous year" and "{'the moment of' with 1969 and 12 and 1}" and "{'the moment of' with 1970 and 0 and 1}".
+(hour 24 is midnight tomorrow)
+check with "hour 24 is midnight tomorrow" and "{'the moment of' with 1970 and 1 and 2}" and "{'the moment at' with 1970 and 1 and 1 and 24 and 0 and 0}".
+(a negative day of month steps back further still)
+check with "day -1 of march is 27 february (1970 not a leap year)" and "{'the moment of' with 1970 and 2 and 27}" and "{'the moment of' with 1970 and 3 and -1}".
+
+Print "-- a moment to its parts --".
+(date -u -d '@0' '+%Y-%m-%d %H:%M:%S %u %j' -> 1970-01-01 00:00:00 4 001)
+check with "year of the epoch" and "1970" and "{'the year of' of 0}".
+check with "month of the epoch" and "1" and "{'the month of' of 0}".
+check with "day of month of the epoch" and "1" and "{'the day of month of' of 0}".
+check with "hour of the epoch" and "0" and "{'the hour of' of 0}".
+check with "minute of the epoch" and "0" and "{'the minute of' of 0}".
+check with "second of the epoch" and "0" and "{'the second of' of 0}".
+check with "weekday of the epoch (thursday)" and "4" and "{'the weekday of' of 0}".
+check with "day of year of the epoch" and "1" and "{'the day of year of' of 0}".
+(date -u -d '@-1' '+%Y-%m-%d %H:%M:%S %u %j' -> 1969-12-31 23:59:59 3 365)
+check with "year the second before the epoch" and "1969" and "{'the year of' of -1}".
+check with "month the second before the epoch" and "12" and "{'the month of' of -1}".
+check with "day of month the second before the epoch" and "31" and "{'the day of month of' of -1}".
+check with "hour the second before the epoch" and "23" and "{'the hour of' of -1}".
+check with "minute the second before the epoch" and "59" and "{'the minute of' of -1}".
+check with "second the second before the epoch" and "59" and "{'the second of' of -1}".
+check with "weekday the second before the epoch (wednesday)" and "3" and "{'the weekday of' of -1}".
+check with "day of year the second before the epoch" and "365" and "{'the day of year of' of -1}".
+(date -u -d '@-86400' '+%Y-%m-%d %u %j' -> 1969-12-31 3 365)
+check with "day before the epoch, day of month" and "31" and "{'the day of month of' of -86400}".
+(date -u -d '2026-07-29 16:02:48' '+%Y %m %d %H %M %S %u %j' -> 2026 07 29 16 02 48 3 210)
+a number called 'a fixed moment' is 1785340968.
+check with "year of the fixed moment" and "2026" and "{'the year of' of 'a fixed moment'}".
+check with "month of the fixed moment" and "7" and "{'the month of' of 'a fixed moment'}".
+check with "day of month of the fixed moment" and "29" and "{'the day of month of' of 'a fixed moment'}".
+check with "hour of the fixed moment" and "16" and "{'the hour of' of 'a fixed moment'}".
+check with "minute of the fixed moment" and "2" and "{'the minute of' of 'a fixed moment'}".
+check with "second of the fixed moment" and "48" and "{'the second of' of 'a fixed moment'}".
+check with "weekday of the fixed moment (wednesday)" and "3" and "{'the weekday of' of 'a fixed moment'}".
+check with "day of year of the fixed moment" and "210" and "{'the day of year of' of 'a fixed moment'}".
+(date -u -d '2026-07-29 16:02:48' '+%V %G %q %C' -> 31 2026 3 20)
+check with "iso week of the fixed moment" and "31" and "{'the iso week of' of 'a fixed moment'}".
+check with "iso week year of the fixed moment" and "2026" and "{'the iso week year of' of 'a fixed moment'}".
+check with "quarter of the fixed moment" and "3" and "{'the quarter of' of 'a fixed moment'}".
+check with "century of the fixed moment" and "20" and "{'the century of' of 'a fixed moment'}".
+(date -u -d '2024-02-29' '+%j %u %V' -> 060 4 09; a leap day. A hole cannot
+ hold its own nested {...} sub-expression - the interpolation scanner
+ closes at the first inner '}' and leaves the second as a stray literal
+ character - so each moment is named first throughout this file.)
+a number called 'leap day 2024' is {'the moment of' with 2024 and 2 and 29}.
+check with "leap day of year" and "60" and "{'the day of year of' of 'leap day 2024'}".
+check with "leap day weekday (thursday)" and "4" and "{'the weekday of' of 'leap day 2024'}".
+check with "leap day iso week" and "9" and "{'the iso week of' of 'leap day 2024'}".
+(date -u -d '2026-12-31' '+%j %u %V %G' -> 365 4 53 2026)
+a number called '31 december 2026' is {'the moment of' with 2026 and 12 and 31}.
+check with "31 december day of year" and "365" and "{'the day of year of' of '31 december 2026'}".
+check with "31 december iso week" and "53" and "{'the iso week of' of '31 december 2026'}".
+check with "31 december iso week year" and "2026" and "{'the iso week year of' of '31 december 2026'}".
+(date -u -d '2027-01-01' '+%j %u %V %G' -> 001 5 53 2026 - 1 January belonging to the previous year's week 53)
+a number called '1 january 2027' is {'the moment of' with 2027 and 1 and 1}.
+check with "1 january day of year" and "1" and "{'the day of year of' of '1 january 2027'}".
+check with "1 january 2027 iso week (previous year's 53rd)" and "53" and "{'the iso week of' of '1 january 2027'}".
+check with "1 january 2027 iso week year" and "2026" and "{'the iso week year of' of '1 january 2027'}".
+(date -u -d '2024-12-31' '+%V %G' -> 01 2025 - 31 December belonging to next year's week 1)
+a number called '31 december 2024' is {'the moment of' with 2024 and 12 and 31}.
+check with "31 december 2024 iso week (next year's 1st)" and "1" and "{'the iso week of' of '31 december 2024'}".
+check with "31 december 2024 iso week year" and "2025" and "{'the iso week year of' of '31 december 2024'}".
+(date -u -d '2000-01-01' '+%u %q %C'; date -u -d '1999-12-31' '+%u %q %C')
+a number called '1 january 2000' is {'the moment of' with 2000 and 1 and 1}.
+a number called '31 december 1999' is {'the moment of' with 1999 and 12 and 31}.
+check with "quarter of january" and "1" and "{'the quarter of' of '1 january 2000'}".
+check with "quarter of december" and "4" and "{'the quarter of' of '31 december 1999'}".
+check with "century 1999" and "19" and "{'the century of' of '31 december 1999'}".
+
+Print "-- names --".
+check with "month name 7" and "July" and "{'the month name of' of 7}".
+check with "short month name 7" and "Jul" and "{'the short month name of' of 7}".
+check with "month name 1" and "January" and "{'the month name of' of 1}".
+check with "month name 12" and "December" and "{'the month name of' of 12}".
+check with "month name out of range low" and "" and "{'the month name of' of 0}".
+check with "month name out of range high" and "" and "{'the month name of' of 13}".
+check with "short month name out of range" and "" and "{'the short month name of' of 0}".
+check with "weekday name 3" and "Wednesday" and "{'the weekday name of' of 3}".
+check with "short weekday name 3" and "Wed" and "{'the short weekday name of' of 3}".
+check with "weekday name 1" and "Monday" and "{'the weekday name of' of 1}".
+check with "weekday name 7" and "Sunday" and "{'the weekday name of' of 7}".
+check with "weekday name out of range" and "" and "{'the weekday name of' of 0}".
+check with "short weekday name out of range" and "" and "{'the short weekday name of' of 8}".
+
+Print "-- calendar facts --".
+check with "2000 is a leap year (divides by 400)" and "1" and "{'is a leap year' of 2000}".
+check with "1900 is not a leap year (divides by 100 not 400)" and "0" and "{'is a leap year' of 1900}".
+check with "2024 is a leap year" and "1" and "{'is a leap year' of 2024}".
+check with "2023 is not a leap year" and "0" and "{'is a leap year' of 2023}".
+check with "2026 is not a leap year" and "0" and "{'is a leap year' of 2026}".
+check with "days in february of a leap year" and "29" and "{'the days in' of 2 and 2024}".
+check with "days in february of a common year" and "28" and "{'the days in' of 2 and 2023}".
+check with "days in april" and "30" and "{'the days in' of 4 and 2026}".
+check with "days in january" and "31" and "{'the days in' of 1 and 2026}".
+check with "29 february 2024 is valid" and "1" and "{'is a valid date' of 2024 and 2 and 29}".
+check with "29 february 2023 is not valid" and "0" and "{'is a valid date' of 2023 and 2 and 29}".
+check with "month 13 is not a valid date" and "0" and "{'is a valid date' of 2026 and 13 and 1}".
+check with "month 0 is not a valid date" and "0" and "{'is a valid date' of 2026 and 0 and 1}".
+check with "day 0 is not a valid date" and "0" and "{'is a valid date' of 2026 and 1 and 0}".
+check with "day 32 of january is not a valid date" and "0" and "{'is a valid date' of 2026 and 1 and 32}".
+check with "23:59:59 is a valid time" and "1" and "{'is a valid time' of 23 and 59 and 59}".
+check with "24:00:00 is not a valid time" and "0" and "{'is a valid time' of 24 and 0 and 0}".
+check with "12:60:00 is not a valid time" and "0" and "{'is a valid time' of 12 and 60 and 0}".
+check with "12:00:60 is not a valid time" and "0" and "{'is a valid time' of 12 and 0 and 60}".
+check with "a negative hour is not a valid time" and "0" and "{'is a valid time' of -1 and 0 and 0}".
+
+Print "-- moving around the calendar --".
+a number called 'the fixed moment' is 1785340968.
+check with "one second later" and "{'the fixed moment' add 1}" and "{'seconds later' of 'the fixed moment' and 1}".
+check with "one second earlier" and "{'the fixed moment' subtract 1}" and "{'seconds later' of 'the fixed moment' and -1}".
+check with "one minute later" and "{'the fixed moment' add 60}" and "{'minutes later' of 'the fixed moment' and 1}".
+check with "one hour later" and "{'the fixed moment' add 3600}" and "{'hours later' of 'the fixed moment' and 1}".
+check with "one day later" and "{'the fixed moment' add 86400}" and "{'days later' of 'the fixed moment' and 1}".
+check with "one week later" and "{'the fixed moment' add 604800}" and "{'weeks later' of 'the fixed moment' and 1}".
+(GNU overflows a month past January into March: date -u -d '2026-01-31 + 1 month' -> 2026-03-03. This library clamps instead - the documented departure.)
+a number called 'the 31st of january 2026' is {'the moment of' with 2026 and 1 and 31}.
+check with "31 january plus one month clamps to 28 february (2026 not a leap year)" and "{'the moment of' with 2026 and 2 and 28}" and "{'months later' of 'the 31st of january 2026' and 1}".
+a number called 'the 31st of january 2024' is {'the moment of' with 2024 and 1 and 31}.
+check with "31 january 2024 plus one month clamps to 29 february (a leap year)" and "{'the moment of' with 2024 and 2 and 29}" and "{'months later' of 'the 31st of january 2024' and 1}".
+a number called 'the 29th of february 2024' is {'the moment of' with 2024 and 2 and 29}.
+check with "29 february plus one year clamps to 28 february" and "{'the moment of' with 2025 and 2 and 28}" and "{'years later' of 'the 29th of february 2024' and 1}".
+a number called 'a quarter past nine on 15 january 2026' is {'the moment at' with 2026 and 1 and 15 and 9 and 30 and 0}.
+check with "a month later keeps the time of day" and "{'the moment at' with 2026 and 2 and 15 and 9 and 30 and 0}" and "{'months later' of 'a quarter past nine on 15 january 2026' and 1}".
+check with "twelve months later is one year later" and "{'years later' of 'the fixed moment' and 1}" and "{'months later' of 'the fixed moment' and 12}".
+a number called 'the 29th of july 2026' is {'the moment of' with 2026 and 7 and 29}.
+check with "a negative count of months goes back" and "{'the moment of' with 2026 and 6 and 29}" and "{'months later' of 'the 29th of july 2026' and -1}".
+check with "start of the day" and "{'the moment of' with 2026 and 7 and 29}" and "{'the start of the day of' of 'the fixed moment'}".
+check with "start of the week (monday on or before a wednesday)" and "{'the moment of' with 2026 and 7 and 27}" and "{'the start of the week of' of 'the fixed moment'}".
+check with "start of the month" and "{'the moment of' with 2026 and 7 and 1}" and "{'the start of the month of' of 'the fixed moment'}".
+check with "start of the year" and "{'the moment of' with 2026 and 1 and 1}" and "{'the start of the year of' of 'the fixed moment'}".
+check with "the weekday on or after, already that day" and "{'the moment of' with 2026 and 7 and 29}" and "{'the weekday on or after' of 'the fixed moment' and 3}".
+check with "the weekday on or after, the next monday" and "{'the moment of' with 2026 and 8 and 3}" and "{'the weekday on or after' of 'the fixed moment' and 1}".
+check with "the weekday on or before, already that day" and "{'the moment of' with 2026 and 7 and 29}" and "{'the weekday on or before' of 'the fixed moment' and 3}".
+check with "the weekday on or before, the previous monday" and "{'the moment of' with 2026 and 7 and 27}" and "{'the weekday on or before' of 'the fixed moment' and 1}".
+a number called 'the 1st of january 2026' is {'the moment of' with 2026 and 1 and 1}.
+a number called 'the 10th of january 2026' is {'the moment of' with 2026 and 1 and 10}.
+check with "days between, later minus earlier" and "9" and "{'the days between' of 'the 1st of january 2026' and 'the 10th of january 2026'}".
+check with "days between, negative when the second is earlier" and "-9" and "{'the days between' of 'the 10th of january 2026' and 'the 1st of january 2026'}".
+check with "days between is floored, not rounded" and "0" and "{'the days between' of 0 and 3600}".
+
+Print "-- writing a moment out: every specifier --".
+(date -u -d '2026-07-29 16:02:48' '+%Y|%m|%d|%H|%M|%S|%y|%j|%V|%G|%q|%C|%u|%a|%A|%b|%B|%p|%P|%z|%Z|%s|%e|%k|%l|%I|%r|%R|%T|%D|%F|%x|%X|%c|%h|%w|%U|%W|%g')
+check with "%Y" and "2026" and {'the moment written as' of 'the fixed moment' and "%Y"}.
+check with "%m" and "07" and {'the moment written as' of 'the fixed moment' and "%m"}.
+check with "%d" and "29" and {'the moment written as' of 'the fixed moment' and "%d"}.
+check with "%H" and "16" and {'the moment written as' of 'the fixed moment' and "%H"}.
+check with "%M" and "02" and {'the moment written as' of 'the fixed moment' and "%M"}.
+check with "%S" and "48" and {'the moment written as' of 'the fixed moment' and "%S"}.
+check with "%y" and "26" and {'the moment written as' of 'the fixed moment' and "%y"}.
+check with "%j" and "210" and {'the moment written as' of 'the fixed moment' and "%j"}.
+check with "%V" and "31" and {'the moment written as' of 'the fixed moment' and "%V"}.
+check with "%G" and "2026" and {'the moment written as' of 'the fixed moment' and "%G"}.
+check with "%q" and "3" and {'the moment written as' of 'the fixed moment' and "%q"}.
+check with "%C" and "20" and {'the moment written as' of 'the fixed moment' and "%C"}.
+check with "%u" and "3" and {'the moment written as' of 'the fixed moment' and "%u"}.
+check with "%a" and "Wed" and {'the moment written as' of 'the fixed moment' and "%a"}.
+check with "%A" and "Wednesday" and {'the moment written as' of 'the fixed moment' and "%A"}.
+check with "%b" and "Jul" and {'the moment written as' of 'the fixed moment' and "%b"}.
+check with "%B" and "July" and {'the moment written as' of 'the fixed moment' and "%B"}.
+check with "%p" and "PM" and {'the moment written as' of 'the fixed moment' and "%p"}.
+check with "%P" and "pm" and {'the moment written as' of 'the fixed moment' and "%P"}.
+check with "%z" and "+0000" and {'the moment written as' of 'the fixed moment' and "%z"}.
+check with "%Z" and "UTC" and {'the moment written as' of 'the fixed moment' and "%Z"}.
+check with "%s" and "1785340968" and {'the moment written as' of 'the fixed moment' and "%s"}.
+check with "%e" and "29" and {'the moment written as' of 'the fixed moment' and "%e"}.
+check with "%k" and "16" and {'the moment written as' of 'the fixed moment' and "%k"}.
+check with "%l" and " 4" and {'the moment written as' of 'the fixed moment' and "%l"}.
+check with "%I" and "04" and {'the moment written as' of 'the fixed moment' and "%I"}.
+check with "%r" and "04:02:48 PM" and {'the moment written as' of 'the fixed moment' and "%r"}.
+check with "%R" and "16:02" and {'the moment written as' of 'the fixed moment' and "%R"}.
+check with "%T" and "16:02:48" and {'the moment written as' of 'the fixed moment' and "%T"}.
+check with "%D" and "07/29/26" and {'the moment written as' of 'the fixed moment' and "%D"}.
+check with "%F" and "2026-07-29" and {'the moment written as' of 'the fixed moment' and "%F"}.
+check with "%x" and "07/29/26" and {'the moment written as' of 'the fixed moment' and "%x"}.
+check with "%X" and "16:02:48" and {'the moment written as' of 'the fixed moment' and "%X"}.
+check with "%c" and "Wed Jul 29 16:02:48 2026" and {'the moment written as' of 'the fixed moment' and "%c"}.
+check with "%h" and "Jul" and {'the moment written as' of 'the fixed moment' and "%h"}.
+check with "%w" and "3" and {'the moment written as' of 'the fixed moment' and "%w"}.
+check with "%U" and "30" and {'the moment written as' of 'the fixed moment' and "%U"}.
+check with "%W" and "30" and {'the moment written as' of 'the fixed moment' and "%W"}.
+check with "%g" and "26" and {'the moment written as' of 'the fixed moment' and "%g"}.
+check with "%%" and "%" and {'the moment written as' of 'the fixed moment' and "%%"}.
+check with "%n is a newline" and "\n" and {'the moment written as' of 'the fixed moment' and "%n"}.
+check with "%t is a tab" and "\t" and {'the moment written as' of 'the fixed moment' and "%t"}.
+check with "an unknown specifier is copied through" and "%Q" and {'the moment written as' of 'the fixed moment' and "%Q"}.
+check with "a literal layout is untouched" and "hello" and {'the moment written as' of 'the fixed moment' and "hello"}.
+check with "a full layout mixes literals and specifiers" and "2026-07-29 16:02:48" and {'the moment written as' of 'the fixed moment' and "%Y-%m-%d %H:%M:%S"}.
+
+Print "-- writing a moment out: the padding and case flags --".
+(a single-digit moment shows padding: date -u -d '2026-01-05 05:03:07' '+[%-d][%_d][%0d][%03d][%5d][%_3H]')
+a number called 'a small moment' is {'the moment at' with 2026 and 1 and 5 and 5 and 3 and 7}.
+check with "- suppresses the default zero pad" and "5" and {'the moment written as' of 'a small moment' and "%-d"}.
+check with "_ pads with a space" and " 5" and {'the moment written as' of 'a small moment' and "%_d"}.
+check with "0 pads with a zero" and "05" and {'the moment written as' of 'a small moment' and "%0d"}.
+check with "a width alone keeps the default pad character" and "005" and {'the moment written as' of 'a small moment' and "%03d"}.
+check with "a wider width still zero-pads %d by default" and "00005" and {'the moment written as' of 'a small moment' and "%5d"}.
+check with "a width on a space-padded field" and "  5" and {'the moment written as' of 'a small moment' and "%_3H"}.
+(date -u -d '2026-01-05' '+[%^a][%#a][%^p][%#p][%#Z]')
+check with "^ upper-cases a short weekday name" and "MON" and {'the moment written as' of 'a small moment' and "%^a"}.
+check with "# also upper-cases a title-cased name" and "MON" and {'the moment written as' of 'a small moment' and "%#a"}.
+check with "^ leaves an already-upper %p alone" and "AM" and {'the moment written as' of 'a small moment' and "%^p"}.
+check with "# lower-cases %p" and "am" and {'the moment written as' of 'a small moment' and "%#p"}.
+check with "# lower-cases %Z" and "utc" and {'the moment written as' of 'a small moment' and "%#Z"}.
+(date -u -d '2026-01-05 05:03:07' '+%012s' -> 001767589387)
+check with "0 with a wide width pads %s, which is unpadded by default" and "001767589387" and {'the moment written as' of 'a small moment' and "%012s"}.
+
+Print "-- writing a moment out: the convenience exports --".
+(date -Iseconds -u -d '@1785340968'; date --rfc-3339=seconds -u -d '@1785340968'; date -R -u -d '@1785340968'; date -u -d '@1785340968')
+check with "the date of" and "2026-07-29" and "{'the date of' of 'the fixed moment'}".
+check with "the date and time of" and "2026-07-29T16:02:48+00:00" and "{'the date and time of' of 'the fixed moment'}".
+check with "the rfc 3339 date and time of" and "2026-07-29 16:02:48+00:00" and "{'the rfc 3339 date and time of' of 'the fixed moment'}".
+check with "the rfc email date of" and "Wed, 29 Jul 2026 16:02:48 +0000" and "{'the rfc email date of' of 'the fixed moment'}".
+check with "the moment in words of" and "Wed Jul 29 16:02:48 UTC 2026" and "{'the moment in words of' of 'the fixed moment'}".
+
+Print "-- reading a moment in: accepted forms --".
+'check moment' with "a plain date" and {'the moment of' with 2026 and 7 and 29} and {'the moment read from' of "2026-07-29"}.
+'check moment' with "a date and time, space separated" and 'the fixed moment' and {'the moment read from' of "2026-07-29 16:02:48"}.
+'check moment' with "a date and time, T separated" and 'the fixed moment' and {'the moment read from' of "2026-07-29T16:02:48"}.
+'check moment' with "a date and time with a Z offset" and 'the fixed moment' and {'the moment read from' of "2026-07-29T16:02:48Z"}.
+'check moment' with "a date and time with a lower-case z, lower-case t" and 'the fixed moment' and {'the moment read from' of "2026-07-29t16:02:48z"}.
+'check moment' with "a date and time with a +hh:mm offset" and {'the fixed moment' subtract 3600} and {'the moment read from' of "2026-07-29T16:02:48+01:00"}.
+'check moment' with "a date and time with a fused +hhmm offset" and {'the fixed moment' subtract 3600} and {'the moment read from' of "2026-07-29T16:02:48+0100"}.
+'check moment' with "a date and time with a bare +hh offset" and {'the fixed moment' add 18000} and {'the moment read from' of "2026-07-29T16:02:48-05"}.
+'check moment' with "a compact date" and {'the moment of' with 2026 and 7 and 29} and {'the moment read from' of "20260729"}.
+'check moment' with "a compact date and time" and 'the fixed moment' and {'the moment read from' of "20260729T160248"}.
+'check moment' with "the epoch as @0" and 0 and {'the moment read from' of "@0"}.
+'check moment' with "a positive @ moment" and 'the fixed moment' and {'the moment read from' of "@1785340968"}.
+'check moment' with "a negative @ moment" and -86400 and {'the moment read from' of "@-86400"}.
+'check moment' with "day month year, short month" and {'the moment of' with 2026 and 7 and 29} and {'the moment read from' of "29 Jul 2026"}.
+'check moment' with "day month year, full month" and {'the moment of' with 2026 and 7 and 29} and {'the moment read from' of "29 July 2026"}.
+'check moment' with "day month year with a trailing time" and 'the fixed moment' and {'the moment read from' of "29 Jul 2026 16:02:48"}.
+'check moment' with "month day year, short month" and {'the moment of' with 2026 and 7 and 29} and {'the moment read from' of "Jul 29 2026"}.
+'check moment' with "month day year, full month with a comma" and {'the moment of' with 2026 and 7 and 29} and {'the moment read from' of "July 29, 2026"}.
+'check moment' with "month day year with a trailing h:m" and {'the moment at' with 2026 and 7 and 29 and 16 and 2 and 0} and {'the moment read from' of "Jul 29 2026 16:02"}.
+'check moment' with "leading and trailing space is trimmed" and {'the moment of' with 2026 and 7 and 29} and {'the moment read from' of "  2026-07-29  "}.
+
+Print "-- reading a moment in: refused forms --".
+'check moment' with "not a date at all" and 0 and {'the moment read from' of "not a date"}.
+'check moment' with "the empty text" and 0 and {'the moment read from' of ""}.
+'check moment' with "a date that does not exist is refused, not normalised" and 0 and {'the moment read from' of "2026-02-30"}.
+'check moment' with "trailing garbage after a valid date is refused" and 0 and {'the moment read from' of "2026-07-29 extra"}.
+a boolean called 'a valid date reads as a moment' is 'reads as a moment' of "2026-07-29".
+check with "a valid date reads as a moment" and "1" and "{'a valid date reads as a moment'}".
+a boolean called 'garbage does not read as a moment' is 'reads as a moment' of "not a date".
+check with "garbage does not read as a moment" and "0" and "{'garbage does not read as a moment'}".
+a boolean called 'the empty text does not read as a moment' is 'reads as a moment' of "".
+check with "the empty text does not read as a moment" and "0" and "{'the empty text does not read as a moment'}".
+a boolean called 'a nonexistent date does not read as a moment' is 'reads as a moment' of "2026-02-30".
+check with "a nonexistent date does not read as a moment" and "0" and "{'a nonexistent date does not read as a moment'}".
+a boolean called 'trailing garbage does not read as a moment' is 'reads as a moment' of "2026-07-29 extra".
+check with "trailing garbage does not read as a moment" and "0" and "{'trailing garbage does not read as a moment'}".
+
+Print "-- relative descriptions --".
+(a Sunday, so the weekday items below have a base that is itself sunday)
+a number called 'the base moment' is {'the moment at' with 2026 and 9 and 27 and 12 and 0 and 0}.
+'check moment' with "now" and 'the base moment' and {'the moment described by' of "now" and 'the base moment'}.
+'check moment' with "today (midnight)" and {'the start of the day of' of 'the base moment'} and {'the moment described by' of "today" and 'the base moment'}.
+'check moment' with "tomorrow" and {'the moment of' with 2026 and 9 and 28} and {'the moment described by' of "tomorrow" and 'the base moment'}.
+'check moment' with "yesterday" and {'the moment of' with 2026 and 9 and 26} and {'the moment described by' of "yesterday" and 'the base moment'}.
+(date -u -d '3 days' vs -3 days, +3 days, plain 3 days - all relative to the sandbox's own clock, so only the SHAPE is checked here against this library's own 'days later')
+'check moment' with "a bare count means forward" and {'days later' of 'the base moment' and 3} and {'the moment described by' of "3 days" and 'the base moment'}.
+'check moment' with "an explicit plus" and {'days later' of 'the base moment' and 3} and {'the moment described by' of "+3 days" and 'the base moment'}.
+'check moment' with "an explicit minus" and {'days later' of 'the base moment' and -3} and {'the moment described by' of "-3 days" and 'the base moment'}.
+'check moment' with "ago negates" and {'days later' of 'the base moment' and -3} and {'the moment described by' of "3 days ago" and 'the base moment'}.
+'check moment' with "weeks ago" and {'weeks later' of 'the base moment' and -3} and {'the moment described by' of "3 weeks ago" and 'the base moment'}.
+'check moment' with "months ago" and {'months later' of 'the base moment' and -2} and {'the moment described by' of "2 months ago" and 'the base moment'}.
+'check moment' with "minutes ago" and {'minutes later' of 'the base moment' and -1} and {'the moment described by' of "1 minute ago" and 'the base moment'}.
+'check moment' with "a singular unit" and {'seconds later' of 'the base moment' and 1} and {'the moment described by' of "1 second" and 'the base moment'}.
+'check moment' with "hours, plural" and {'hours later' of 'the base moment' and -5} and {'the moment described by' of "5 hours ago" and 'the base moment'}.
+'check moment' with "next <unit> means 1" and {'days later' of 'the base moment' and 1} and {'the moment described by' of "next day" and 'the base moment'}.
+'check moment' with "last <unit> means -1" and {'days later' of 'the base moment' and -1} and {'the moment described by' of "last day" and 'the base moment'}.
+'check moment' with "next week" and {'weeks later' of 'the base moment' and 1} and {'the moment described by' of "next week" and 'the base moment'}.
+'check moment' with "next year" and {'years later' of 'the base moment' and 1} and {'the moment described by' of "next year" and 'the base moment'}.
+'check moment' with "a bare weekday on or after, same day since the base is that weekday" and {'the moment of' with 2026 and 9 and 27} and {'the moment described by' of "sunday" and 'the base moment'}.
+'check moment' with "a bare weekday on or after, forward to the next one" and {'the moment of' with 2026 and 9 and 30} and {'the moment described by' of "wednesday" and 'the base moment'}.
+'check moment' with "next <weekday> is strictly after, even on that weekday" and {'the moment of' with 2026 and 10 and 4} and {'the moment described by' of "next sunday" and 'the base moment'}.
+'check moment' with "last <weekday> is strictly before, even on that weekday" and {'the moment of' with 2026 and 9 and 20} and {'the moment described by' of "last sunday" and 'the base moment'}.
+'check moment' with "next <weekday> on an ordinary day" and {'the moment of' with 2026 and 9 and 30} and {'the moment described by' of "next wednesday" and 'the base moment'}.
+'check moment' with "last <weekday> on an ordinary day" and {'the moment of' with 2026 and 9 and 23} and {'the moment described by' of "last wednesday" and 'the base moment'}.
+a number called 'the 29th of july 2026 again' is {'the moment of' with 2026 and 7 and 29}.
+'check moment' with "an absolute prefix with a relative item after it" and {'days later' of 'the 29th of july 2026 again' and 7} and {'the moment described by' of "2026-07-29 + 7 days" and 'the base moment'}.
+a number called 'the 28th of september 2026' is {'the moment of' with 2026 and 9 and 28}.
+'check moment' with "relative items apply in the order they are written" and {'hours later' of 'the 28th of september 2026' and 2} and {'the moment described by' of "tomorrow 2 hours" and 'the base moment'}.
+a boolean called 'a description alone reads as one' is 'reads as a description' of "3 days ago".
+check with "a relative description reads as one" and "1" and "{'a description alone reads as one'}".
+a boolean called 'an absolute date alone reads as a description' is 'reads as a description' of "2026-07-29".
+check with "an absolute moment on its own reads as a description too" and "1" and "{'an absolute date alone reads as a description'}".
+a boolean called 'garbage does not read as a description' is 'reads as a description' of "not a description at all".
+check with "garbage does not read as a description" and "0" and "{'garbage does not read as a description'}".
+a boolean called 'the empty text does not read as a description' is 'reads as a description' of "".
+check with "the empty text does not read as a description" and "0" and "{'the empty text does not read as a description'}".
+a boolean called 'trailing garbage after a description is refused' is 'reads as a description' of "3 days ago and then some".
+check with "trailing garbage after a description is refused" and "0" and "{'trailing garbage after a description is refused'}".
+
+Print "-- round trips --".
+a text called 'the fixed moment written out' is 'the date and time of' of 'the fixed moment'.
+check with "the fixed moment survives a full write and read" and "{'the fixed moment'}" and "{'the moment read from' of 'the fixed moment written out'}".
+a text called 'the epoch written as rfc 3339' is 'the rfc 3339 date and time of' of 0.
+check with "the epoch survives rfc 3339" and "0" and "{'the moment read from' of 'the epoch written as rfc 3339'}".
+a text called 'the day before the epoch written out' is 'the date and time of' of -86400.
+check with "a moment before the epoch survives a round trip" and "-86400" and "{'the moment read from' of 'the day before the epoch written out'}".
+a number called '1 january 2026 again' is {'the moment of' with 2026 and 1 and 1}.
+a text called '1 january 2026 written out' is 'the date of' of '1 january 2026 again'.
+check with "the date-only form survives a round trip" and "{'1 january 2026 again'}" and "{'the moment read from' of '1 january 2026 written out'}".
+a number called 'the fixed moment read back once' is 'the moment read from' of 'the fixed moment written out'.
+a text called 'the fixed moment written out twice' is 'the date and time of' of 'the fixed moment read back once'.
+check with "a moment written and read twice is unchanged" and "{'the fixed moment'}" and "{'the moment read from' of 'the fixed moment written out twice'}".
+
+Print "{'assertions made'} assertions, {failures} failures".
+If failures is greater than 0 then, exit 1.

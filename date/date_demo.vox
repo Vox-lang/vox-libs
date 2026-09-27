@@ -1,0 +1,126 @@
+(Every date export, called the way you would actually use it: a fixed
+ moment taken apart into its civil fields, moved around the calendar,
+ written out in every documented layout, and read back in from the forms
+ a person or a log file would actually hand you.
+
+ This demo is the library's test - its output is compared byte for byte
+ against date_demo.expected - so everything after the first section uses
+ the one fixed moment throughout, rather than 'the moment now', so the
+ transcript is the same every time it runs.
+
+   vox date.vox --shared -o libdate.so
+   vox date_demo.vox --link date -o date_demo
+   ./date_demo)
+
+see date version "0.1" from "./libdate.lib".
+
+(--- Now ---)
+Print "--- now ---".
+a number called 'right now' is 'the moment now'.
+a boolean called 'the year has reached 2026' is false.
+If {'the year of' of 'right now'} is greater than or equal to 2026 then, set 'the year has reached 2026' to true.
+Print "'the moment now' is a number of seconds since 1970, and the year it names has reached 2026: {'the year has reached 2026'}".
+
+(--- Civil time to a moment, and back ---)
+Print "--- civil time to a moment ---".
+a number called 'the moment of a birthday' is 'the moment of' with 2026 and 7 and 29.
+Print "'the moment of' 2026-07-29 is the number {'the moment of a birthday'}".
+a number called 'the same moment with a clock time' is 'the moment at' with 2026 and 7 and 29 and 16 and 2 and 48.
+Print "'the moment at' 2026-07-29 16:02:48 is {'the same moment with a clock time'}".
+(Fields that overflow normalise rather than refuse: day 32 of January is 1 February.)
+a number called 'day 32 of january' is 'the moment of' with 2026 and 1 and 32.
+a number called 'the 1st of february' is 'the moment of' with 2026 and 2 and 1.
+a boolean called 'the overflow normalised correctly' is false.
+If 'day 32 of january' is 'the 1st of february' then, set 'the overflow normalised correctly' to true.
+Print "day 32 of january normalises to 1 february: {'the overflow normalised correctly'}".
+
+(--- A moment to its parts ---)
+Print "--- a moment to its parts ---".
+a number called moment is 'the same moment with a clock time'.
+Print "year {'the year of' of moment}, month {'the month of' of moment}, day {'the day of month of' of moment}".
+Print "hour {'the hour of' of moment}, minute {'the minute of' of moment}, second {'the second of' of moment}".
+Print "weekday {'the weekday of' of moment} (1 Monday .. 7 Sunday), day of year {'the day of year of' of moment}".
+Print "iso week {'the iso week of' of moment} of iso year {'the iso week year of' of moment}".
+Print "quarter {'the quarter of' of moment}, century {'the century of' of moment}".
+
+(--- Names ---)
+Print "--- names ---".
+Print "month 7 is {'the month name of' of 7}, or {'the short month name of' of 7} for short".
+Print "weekday 3 is {'the weekday name of' of 3}, or {'the short weekday name of' of 3} for short".
+Print "a month outside 1..12 has no name: [{'the month name of' of 0}]".
+
+(--- Calendar facts ---)
+Print "--- calendar facts ---".
+Print "2024 is a leap year: {'is a leap year' of 2024}, and 2023 is: {'is a leap year' of 2023}".
+Print "february 2024 has {'the days in' of 2 and 2024} days; february 2023 has {'the days in' of 2 and 2023}".
+Print "29 february 2024 is a valid date: {'is a valid date' of 2024 and 2 and 29}, 29 february 2023 is: {'is a valid date' of 2023 and 2 and 29}".
+Print "24:00:00 is a valid time: {'is a valid time' of 24 and 0 and 0}".
+
+(--- Moving around the calendar ---)
+Print "--- moving around the calendar ---".
+a text called 'the layout for a plain date' is "%F".
+a number called 'a week later' is 'weeks later' of moment and 1.
+Print "a week later: {'the moment written as' of 'a week later' and 'the layout for a plain date'}".
+(The documented departure from GNU: a month later clamps the day of
+ month rather than overflowing into the month after.)
+a number called 'the 31st of january' is 'the moment of' with 2026 and 1 and 31.
+a number called 'the 31st of january plus one month' is 'months later' of 'the 31st of january' and 1.
+Print "31 january plus one month clamps to: {'the moment written as' of 'the 31st of january plus one month' and 'the layout for a plain date'}".
+a text called 'the layout for a date and time' is "%F %T".
+a number called 'the start of the day' is 'the start of the day of' of moment.
+Print "start of the day: {'the moment written as' of 'the start of the day' and 'the layout for a date and time'}".
+a number called 'the start of the week' is 'the start of the week of' of moment.
+Print "start of the week (monday on or before): {'the moment written as' of 'the start of the week' and 'the layout for a plain date'}".
+a number called 'the next monday' is 'the weekday on or after' of moment and 1.
+Print "the next monday on or after: {'the moment written as' of 'the next monday' and 'the layout for a plain date'}".
+a number called 'new year' is 'the moment of' with 2026 and 1 and 1.
+Print "days between new year and this moment: {'the days between' of 'new year' and moment}".
+
+(--- Writing a moment out ---)
+Print "--- writing a moment out ---".
+a text called 'a full layout' is "%A, %-d %B %Y at %H:%M".
+Print "any layout: {'the moment written as' of moment and 'a full layout'}".
+Print "'the date of': {'the date of' of moment}".
+Print "'the date and time of': {'the date and time of' of moment}".
+Print "'the rfc 3339 date and time of': {'the rfc 3339 date and time of' of moment}".
+Print "'the rfc email date of': {'the rfc email date of' of moment}".
+Print "'the moment in words of': {'the moment in words of' of moment}".
+
+(--- Reading a moment in ---)
+Print "--- reading a moment in ---".
+a text called 'an iso date' is "2026-07-29".
+a number called 'read from an iso date' is 'the moment read from' of 'an iso date'.
+Print "'2026-07-29' reads as {'the moment written as' of 'read from an iso date' and 'the layout for a plain date'}".
+a text called 'a compact form' is "20260729T160248".
+a number called 'read from a compact form' is 'the moment read from' of 'a compact form'.
+Print "'20260729T160248' reads as {'the moment written as' of 'read from a compact form' and 'the layout for a date and time'}".
+a text called 'a human date' is "29 July 2026".
+a number called 'read from a human date' is 'the moment read from' of 'a human date'.
+Print "'29 July 2026' reads as {'the moment written as' of 'read from a human date' and 'the layout for a plain date'}".
+a text called 'a date that does not exist' is "2026-02-30".
+a boolean called 'the impossible date reads as a moment' is 'reads as a moment' of 'a date that does not exist'.
+Print "'2026-02-30' does not exist, and reads as a moment: {'the impossible date reads as a moment'}".
+a text called garbage is "not a date".
+a boolean called 'garbage reads as a moment' is 'reads as a moment' of garbage.
+a number called 'garbage read anyway' is 'the moment read from' of garbage.
+Print "garbage reads as a moment: {'garbage reads as a moment'}, and reading it anyway gives: {'garbage read anyway'}".
+
+(--- Relative descriptions ---)
+Print "--- relative descriptions ---".
+a text called 'a layout naming the weekday' is "%A %F".
+a number called 'a base moment' is 'the moment of' with 2026 and 9 and 27.
+Print "the base moment is {'the moment written as' of 'a base moment' and 'a layout naming the weekday'}".
+a text called 'three weeks ago as text' is "3 weeks ago".
+a number called 'three weeks ago' is 'the moment described by' of 'three weeks ago as text' and 'a base moment'.
+Print "'3 weeks ago' from there is {'the moment written as' of 'three weeks ago' and 'the layout for a plain date'}".
+a text called 'next wednesday as text' is "next wednesday".
+a number called 'the next wednesday' is 'the moment described by' of 'next wednesday as text' and 'a base moment'.
+Print "'next wednesday' from there is {'the moment written as' of 'the next wednesday' and 'the layout for a plain date'}".
+a text called 'an absolute description' is "2026-01-01 + 7 days".
+a number called 'an absolute date plus a week' is 'the moment described by' of 'an absolute description' and 'a base moment'.
+Print "'2026-01-01 + 7 days' is {'the moment written as' of 'an absolute date plus a week' and 'the layout for a plain date'}, ignoring the base entirely since it names its own absolute moment".
+a boolean called 'next wednesday reads as a description' is 'reads as a description' of 'next wednesday as text'.
+Print "'next wednesday' reads as a description: {'next wednesday reads as a description'}".
+a text called 'not a description' is "not a description at all".
+a boolean called 'garbage reads as a description' is 'reads as a description' of 'not a description'.
+Print "garbage reads as a description: {'garbage reads as a description'}".

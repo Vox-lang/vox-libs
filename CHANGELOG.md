@@ -11,6 +11,40 @@ the collection as a package; each library also carries its own `Library
 
 ### Added
 
+- **date** (library version 0.1) — calendar arithmetic for Vox, under UTC
+  only, in the C locale. A moment is the whole-second unix timestamp Vox's
+  own `now's unix` already hands out, so it fits any number slot without a
+  user-defined thing crossing the `.lib` boundary. Civil time converts to a
+  moment and back (`'the moment of'`, `'the moment at'`, and the accessors
+  for year, month, day, hour, minute, second, weekday, day of year, ISO
+  week and ISO week year, quarter, and century), month and weekday names
+  are looked up, and `'is a leap year'`, `'the days in'`, `'is a valid
+  date'`, and `'is a valid time'` state the calendar's own facts. Moving
+  around the calendar covers every unit from a second to a year, the
+  anchors (start of day, week, month, year), the nearest weekday on or
+  before or after a moment, and the whole days between two moments —
+  `'months later'` and `'years later'` deliberately clamp the day of month
+  to the target month rather than overflowing into the month after, the
+  way GNU's own `date -d '+1 month'` does, because that is what a person
+  asking for "a month later" means. Writing a moment out follows GNU
+  `date`'s own layout language byte for byte, padding flags and case flags
+  included, with `'the date of'`, `'the date and time of'`, `'the rfc 3339
+  date and time of'`, `'the rfc email date of'`, and `'the moment in words
+  of'` as the named forms `-I`, `-Iseconds`, `--rfc-3339=seconds`, `-R`,
+  and bare `date` write. Reading a moment in accepts every form `date -d`
+  people actually type — ISO, compact, `@`-epoch, and the two human
+  word-orders, each with an optional offset or clock time — strictly,
+  refusing a date that does not exist rather than normalising it, and a
+  fourth export, `'the moment described by'`, reads the relative half of
+  `date -d` too: `now`, `today`, `tomorrow`, `yesterday`, signed counts of
+  a unit with an optional `ago`, `next`/`last <unit or weekday>`, and a
+  bare weekday name, composed with an optional absolute prefix. As with
+  json's `'reads as json'`, `'reads as a moment'` and `'reads as a
+  description'` exist because 0 is a real moment, so an answer alone
+  cannot tell a malformed text from a genuine one. date ships 237 such
+  assertions, its expected values taken from GNU `date -u` under
+  `TZ=UTC LC_ALL=C` while the test was written.
+
 - **textkit** (library version 0.2) — three exports make it a general
   tokenizer rather than one that only splits on whitespace: `'split on'`
   splits a text on any separator (empty fields kept, a trailing separator

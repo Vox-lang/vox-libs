@@ -34,9 +34,10 @@ BuildRequires:  binutils
 
 %description
 Shared libraries written in Vox, for Vox programs to see: textkit (text
-utilities) and process (wait-status decoding). Interfaces install to
-%{_includedir}/vox as .lib files alongside the system headers; shared
-objects install to %{_libdir} where ldconfig indexes them.
+utilities), process (wait-status decoding), json (JSON serialisation and
+deserialisation), and date (calendar arithmetic under UTC). Interfaces
+install to %{_includedir}/vox as .lib files alongside the system headers;
+shared objects install to %{_libdir} where ldconfig indexes them.
 
 Vox itself has no standard library, deliberately: the compiler never
 assumes these are installed. They are ordinary libraries you choose.

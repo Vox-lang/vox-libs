@@ -1,0 +1,1250 @@
+(date - calendar arithmetic for Vox, in the C locale, under UTC only.
+
+ The library is the exports below, called the way you would actually use
+ them. Everything else in this file is a step of one of them - Vox has no
+ visibility control, so the rest is exported too, but nothing outside this
+ list is meant to be called.
+
+   'the moment now'                                        current moment
+
+   'the moment of' with year and month and 'day of month'   civil to moment
+   'the moment at' with year and month and 'day of month'
+     and hour and minute and second
+
+   'the year of', 'the month of', 'the day of month of',    moment to parts
+   'the hour of', 'the minute of', 'the second of',
+   'the weekday of', 'the day of year of', 'the iso week of',
+   'the iso week year of', 'the quarter of', 'the century of'
+
+   'the month name of', 'the short month name of',          names
+   'the weekday name of', 'the short weekday name of'
+
+   'is a leap year', 'the days in', 'is a valid date',       calendar facts
+   'is a valid time'
+
+   'seconds later', 'minutes later', 'hours later',          moving around
+   'days later', 'weeks later', 'months later', 'years later'
+   'the start of the day of', 'the start of the week of',
+   'the start of the month of', 'the start of the year of',
+   'the weekday on or after', 'the weekday on or before',
+   'the days between'
+
+   'the moment written as', 'the date of',                  writing out
+   'the date and time of', 'the rfc 3339 date and time of',
+   'the rfc email date of', 'the moment in words of'
+
+   'the moment read from', 'reads as a moment'               reading in
+
+   'the moment described by', 'reads as a description'       relative
+
+ THE REPRESENTATION. A moment is a number: whole seconds since 1970-01-01
+ 00:00:00 UTC, the same number 'the moment now' hands out and the same
+ number GNU date prints for %s. A date with no time of day is the moment
+ at midnight. Moments before 1970 are negative and work throughout - the
+ calendar is proleptic Gregorian, as GNU's is - so every conversion below
+ floors explicitly rather than trusting 'divide' and 'modulo', which
+ truncate toward zero.
+
+ TWO DELIBERATE DEPARTURES FROM GNU, both documented in README.md:
+   - 'months later' and 'years later' clamp the day of month to the target
+     month (31 January plus one month is 28 or 29 February) rather than
+     overflowing into March the way GNU's own "+1 month" does.
+   - there is no time zone but UTC. A parsed offset is honoured on the way
+     in; every write is UTC, with %z always "+0000" and %Z always "UTC".
+
+ Build and consume:
+   vox date.vox --shared -o libdate.so
+   see date version "0.1" from "./libdate.lib".)
+
+Library date version "0.1".
+
+(--- Floor arithmetic. Vox's 'divide' and 'modulo' truncate toward zero,
+ like C's; every divisor used below is positive, and these two make every
+ later division floor instead, which is what a moment before 1970 needs. )
+
+To 'floor divide' with a number called dividend and a number called divisor.
+  a number called quotient is dividend divide divisor.
+  a number called 'the remainder' is dividend modulo divisor.
+  If 'the remainder' is not 0 and dividend is less than 0 then, set quotient to quotient subtract 1.
+  Return a number, quotient.
+
+To 'floor modulo' with a number called dividend and a number called divisor.
+  a number called 'the remainder' is dividend modulo divisor.
+  If 'the remainder' is less than 0 then, set 'the remainder' to 'the remainder' add divisor.
+  Return a number, 'the remainder'.
+
+(--- The civil calendar core: Howard Hinnant's days_from_civil and
+ civil_from_days, exact for the proleptic Gregorian calendar with nothing
+ but integer arithmetic. A month outside 1..12 is carried into the year
+ first, the way 'the moment at' wants (month 13 is January next year); a
+ day outside the month's own range is deliberately left alone, because the
+ formula below is linear in the day and answers correctly for any integer
+ day without that carry - which is what makes day 0 the last day of the
+ previous month and day 32 of January 1 February, for free. )
+
+(Month, carried into the year so the result is always 1..12. Takes month
+ as any integer and answers the year it lands in and the 1..12 month
+ within it, through a map so both come back at once.)
+To 'read a normalised month into' with a number called 'the month' and a number called 'the year' and a map called civil.
+  a number called 'extra years' is 'floor divide' with {'the month' subtract 1} and 12.
+  a number called 'the normalised month' is {'floor modulo' with {'the month' subtract 1} and 12} add 1.
+  Set civil's "year" to 'the year' add 'extra years'.
+  Set civil's "month" to 'the normalised month'.
+
+(Days since 1970-01-01 for a year, a month (any integer - normalised
+ here), and a day (any integer, left exactly as given).)
+To 'days from civil' with a number called 'the year' and a number called 'the month' and a number called 'the day'.
+  a map called normalised is {}.
+  'read a normalised month into' with 'the month' and 'the year' and normalised.
+  a number called 'the civil year' is normalised's "year".
+  a number called 'the civil month' is normalised's "month".
+  If 'the civil month' is less than or equal to 2 then, set 'the civil year' to 'the civil year' subtract 1.
+  a number called era is 'floor divide' with 'the civil year' and 400.
+  a number called 'the year of the era' is 'the civil year' subtract {era multiply 400}.
+  a number called 'the month index' is 'the civil month' subtract 3.
+  If 'the civil month' is less than or equal to 2 then, set 'the month index' to 'the civil month' add 9.
+  a number called 'the day of the year before the era' is 153 multiply 'the month index'.
+  a number called 'the day of the year' is 'floor divide' with {'the day of the year before the era' add 2} and 5.
+  set 'the day of the year' to 'the day of the year' add 'the day' subtract 1.
+  a number called 'the leap days in the era' is {'floor divide' with 'the year of the era' and 4} subtract {'floor divide' with 'the year of the era' and 100}.
+  a number called 'the day of the era' is {'the year of the era' multiply 365} add 'the leap days in the era' add 'the day of the year'.
+  Return a number, {era multiply 146097} add 'the day of the era' subtract 719468.
+
+(The inverse: days since 1970-01-01 back to a year, a month (1..12), and
+ a day (1..31), written into the civil map's "year", "month", "day".)
+To 'read civil into' with a number called 'the day number' and a map called civil.
+  a number called z is 'the day number' add 719468.
+  a number called era is 'floor divide' with z and 146097.
+  a number called 'the day of the era' is z subtract {era multiply 146097}.
+  a number called 'the leap correction' is {'floor divide' with 'the day of the era' and 1460} subtract {'floor divide' with 'the day of the era' and 36524}.
+  set 'the leap correction' to 'the leap correction' add {'floor divide' with 'the day of the era' and 146096}.
+  a number called 'the year of the era guess' is 'floor divide' with {'the day of the era' subtract 'the leap correction'} and 365.
+  a number called 'the civil year' is 'the year of the era guess' add {era multiply 400}.
+  a number called 'the leap days in the era' is {'floor divide' with 'the year of the era guess' and 4} subtract {'floor divide' with 'the year of the era guess' and 100}.
+  a number called 'the day of the year' is 'the day of the era' subtract {{365 multiply 'the year of the era guess'} add 'the leap days in the era'}.
+  a number called 'the month index' is 'floor divide' with {{5 multiply 'the day of the year'} add 2} and 153.
+  a number called 'the day of the month before adjustment' is 'floor divide' with {{153 multiply 'the month index'} add 2} and 5.
+  a number called 'the civil day' is {'the day of the year' subtract 'the day of the month before adjustment'} add 1.
+  a number called 'the civil month' is 'the month index' add 3.
+  If 'the month index' is greater than or equal to 10 then, set 'the civil month' to 'the month index' subtract 9.
+  If 'the civil month' is less than or equal to 2 then, set 'the civil year' to 'the civil year' add 1.
+  Set civil's "year" to 'the civil year'.
+  Set civil's "month" to 'the civil month'.
+  Set civil's "day" to 'the civil day'.
+
+(--- Now ---)
+
+To 'the moment now'.
+  Return a number, current time's unix.
+
+(--- Civil time to a moment ---)
+
+To 'the moment of' with a number called 'the year' and a number called 'the month' and a number called 'the day of month'.
+  Return a number, {'the moment at' with 'the year' and 'the month' and 'the day of month' and 0 and 0 and 0}.
+
+(Fields that overflow normalise the way C's mktime does - day 0 is the
+ last day of the previous month, hour 24 is midnight tomorrow - because
+ the day and the time of day are both carried through as plain linear
+ offsets from midnight of the (month-normalised) civil date, with nothing
+ clamped or range-checked. That is deliberate: see the plan.)
+To 'the moment at' with a number called 'the year' and a number called 'the month' and a number called 'the day of month' and a number called 'the hour' and a number called 'the minute' and a number called 'the second'.
+  a number called 'the day number' is 'days from civil' with 'the year' and 'the month' and 'the day of month'.
+  a number called 'the seconds of the day' is {'the hour' multiply 3600} add {'the minute' multiply 60}.
+  set 'the seconds of the day' to 'the seconds of the day' add 'the second'.
+  Return a number, {'the day number' multiply 86400} add 'the seconds of the day'.
+
+(--- A moment to its parts ---)
+
+To 'the year of' of a number called moment.
+  a number called 'the day number' is 'floor divide' with moment and 86400.
+  a map called civil is {}.
+  'read civil into' with 'the day number' and civil.
+  Return a number, civil's "year".
+
+To 'the month of' of a number called moment.
+  a number called 'the day number' is 'floor divide' with moment and 86400.
+  a map called civil is {}.
+  'read civil into' with 'the day number' and civil.
+  Return a number, civil's "month".
+
+To 'the day of month of' of a number called moment.
+  a number called 'the day number' is 'floor divide' with moment and 86400.
+  a map called civil is {}.
+  'read civil into' with 'the day number' and civil.
+  Return a number, civil's "day".
+
+To 'the hour of' of a number called moment.
+  a number called 'the total hours' is 'floor divide' with moment and 3600.
+  Return a number, 'floor modulo' with 'the total hours' and 24.
+
+To 'the minute of' of a number called moment.
+  a number called 'the total minutes' is 'floor divide' with moment and 60.
+  Return a number, 'floor modulo' with 'the total minutes' and 60.
+
+To 'the second of' of a number called moment.
+  Return a number, 'floor modulo' with moment and 60.
+
+(1 January 1970 was a Thursday, so the weekday in the 1..7 Monday form is
+ the day number plus three, modulo seven, plus one, once the modulo is
+ made non-negative.)
+To 'the weekday of' of a number called moment.
+  a number called 'the day number' is 'floor divide' with moment and 86400.
+  a number called 'the weekday index' is 'floor modulo' with {'the day number' add 3} and 7.
+  Return a number, 'the weekday index' add 1.
+
+To 'the day of year of' of a number called moment.
+  a number called 'the day number' is 'floor divide' with moment and 86400.
+  a map called civil is {}.
+  'read civil into' with 'the day number' and civil.
+  a number called 'the year' is civil's "year".
+  a number called 'the start of the year' is 'days from civil' with 'the year' and 1 and 1.
+  Return a number, {'the day number' subtract 'the start of the year'} add 1.
+
+(How many ISO weeks are in a given Gregorian year: 53 when 1 January
+ falls on a Thursday, or the year is a leap year and 1 January falls on
+ a Wednesday - the closed form below, from the ISO week date rule.)
+To 'the iso week correction for' of a number called 'the year'.
+  a number called 'the leap correction' is {'floor divide' with 'the year' and 4} subtract {'floor divide' with 'the year' and 100}.
+  set 'the leap correction' to 'the leap correction' add {'floor divide' with 'the year' and 400}.
+  Return a number, 'floor modulo' with {'the year' add 'the leap correction'} and 7.
+
+To 'weeks in the iso year' of a number called 'the year'.
+  a number called p is 'the iso week correction for' of 'the year'.
+  a number called 'p of the previous year' is 'the iso week correction for' of {'the year' subtract 1}.
+  If p is 4 then, Return a number, 53.
+  If 'p of the previous year' is 3 then, Return a number, 53.
+  Return a number, 52.
+
+(The ISO week and its year, written into a map's "week" and "year": a 1
+ January can belong to the last week of the previous year, and a 31
+ December to week 1 of the next, so the two travel together.)
+(week and 'the weeks in this year' cannot both miss - one is less than 1
+ only when the other cannot be exceeded - so two plain ifs, checked
+ against the year's own week count before either can adjust it, do the
+ same job as an if/otherwise without one clause nesting inside the
+ other.)
+To 'read the iso week into' with a number called moment and a map called 'the result'.
+  a number called 'the day number' is 'floor divide' with moment and 86400.
+  a map called civil is {}.
+  'read civil into' with 'the day number' and civil.
+  a number called 'the year' is civil's "year".
+  a number called weekday is 'the weekday of' of moment.
+  a number called 'the day of year' is 'the day of year of' of moment.
+  a number called week is 'floor divide' with {{'the day of year' subtract weekday} add 10} and 7.
+  a number called 'the unadjusted week' is week.
+  a number called 'the weeks in this year' is 'weeks in the iso year' of 'the year'.
+  If 'the unadjusted week' is less than 1 then, set 'the year' to 'the year' subtract 1, set week to 'weeks in the iso year' of 'the year'.
+  If 'the unadjusted week' is greater than 'the weeks in this year' then, set 'the year' to 'the year' add 1, set week to 1.
+  Set 'the result's "year" to 'the year'.
+  Set 'the result's "week" to week.
+
+To 'the iso week of' of a number called moment.
+  a map called 'the result' is {}.
+  'read the iso week into' with moment and 'the result'.
+  Return a number, 'the result's "week".
+
+To 'the iso week year of' of a number called moment.
+  a map called 'the result' is {}.
+  'read the iso week into' with moment and 'the result'.
+  Return a number, 'the result's "year".
+
+To 'the quarter of' of a number called moment.
+  a number called 'the month' is 'the month of' of moment.
+  Return a number, {'floor divide' with {'the month' subtract 1} and 3} add 1.
+
+To 'the century of' of a number called moment.
+  a number called 'the year' is 'the year of' of moment.
+  Return a number, 'floor divide' with 'the year' and 100.
+
+(--- Names. A name list, indexed 1..N: out of range is an out-of-bounds
+ list read into a text destination, which is the empty text - exactly the
+ answer the plan asks for, for free. )
+
+To 'the month name of' of a number called 'the month'.
+  a list called names is ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"].
+  a text called name is element 'the month' of names.
+  Return a text, name.
+
+To 'the short month name of' of a number called 'the month'.
+  a list called names is ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"].
+  a text called name is element 'the month' of names.
+  Return a text, name.
+
+To 'the weekday name of' of a number called weekday.
+  a list called names is ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"].
+  a text called name is element weekday of names.
+  Return a text, name.
+
+To 'the short weekday name of' of a number called weekday.
+  a list called names is ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"].
+  a text called name is element weekday of names.
+  Return a text, name.
+
+(--- Calendar facts ---)
+
+(A raw comparison cannot itself sit on the right of a declaration's own
+ "is" - the two "is"es collide - so a leap year is decided with plain
+ Ifs and numbers rather than a chain of named booleans.)
+To 'is a leap year' of a number called 'the year'.
+  a number called 'divides by four' is 'floor modulo' with 'the year' and 4.
+  a number called 'divides by a hundred' is 'floor modulo' with 'the year' and 100.
+  a number called 'divides by four hundred' is 'floor modulo' with 'the year' and 400.
+  If 'divides by four' is not 0 then, Return a boolean, false.
+  If 'divides by a hundred' is not 0 then, Return a boolean, true.
+  Return a boolean, 'divides by four hundred' is 0.
+
+To 'the days in' of a number called 'the month' and a number called 'the year'.
+  a list called lengths is [31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31].
+  a number called 'the length' is element 'the month' of lengths.
+  a boolean called 'it is a leap february' is false.
+  If 'the month' is 2 and {'is a leap year' of 'the year'} then, set 'it is a leap february' to true.
+  If 'it is a leap february' then, set 'the length' to 29.
+  Return a number, 'the length'.
+
+To 'is a valid date' of a number called 'the year' and a number called 'the month' and a number called 'the day of month'.
+  If 'the month' is less than 1 then, Return a boolean, false.
+  If 'the month' is greater than 12 then, Return a boolean, false.
+  If 'the day of month' is less than 1 then, Return a boolean, false.
+  a number called 'the length' is 'the days in' of 'the month' and 'the year'.
+  Return a boolean, 'the day of month' is less than or equal to 'the length'.
+
+To 'is a valid time' of a number called 'the hour' and a number called 'the minute' and a number called 'the second'.
+  If 'the hour' is less than 0 then, Return a boolean, false.
+  If 'the hour' is greater than 23 then, Return a boolean, false.
+  If 'the minute' is less than 0 then, Return a boolean, false.
+  If 'the minute' is greater than 59 then, Return a boolean, false.
+  If 'the second' is less than 0 then, Return a boolean, false.
+  Return a boolean, 'the second' is less than or equal to 59.
+
+(--- Moving around the calendar. The plain ones are arithmetic on the
+ moment itself - a moment is already a count of seconds, so "later" is
+ just adding more of them. )
+
+To 'seconds later' of a number called moment and a number called count.
+  Return a number, moment add count.
+
+To 'minutes later' of a number called moment and a number called count.
+  Return a number, moment add {count multiply 60}.
+
+To 'hours later' of a number called moment and a number called count.
+  Return a number, moment add {count multiply 3600}.
+
+To 'days later' of a number called moment and a number called count.
+  Return a number, moment add {count multiply 86400}.
+
+To 'weeks later' of a number called moment and a number called count.
+  Return a number, moment add {count multiply 604800}.
+
+(Month and year arithmetic clamp the day of month to the target month
+ instead of overflowing into the month after, which is GNU's own "+1
+ month" - see the header comment and README.md.)
+To 'months later' of a number called moment and a number called count.
+  a map called civil is {}.
+  a number called 'the day number' is 'floor divide' with moment and 86400.
+  'read civil into' with 'the day number' and civil.
+  a number called 'the year' is civil's "year".
+  a number called 'the month' is civil's "month".
+  a number called 'the day of month' is civil's "day".
+  a number called 'the total months' is {{'the year' multiply 12} add {'the month' subtract 1}} add count.
+  a number called 'the target year' is 'floor divide' with 'the total months' and 12.
+  a number called 'the target month' is {'floor modulo' with 'the total months' and 12} add 1.
+  a number called 'the longest day' is 'the days in' of 'the target month' and 'the target year'.
+  If 'the day of month' is greater than 'the longest day' then, set 'the day of month' to 'the longest day'.
+  a number called 'the hour' is 'the hour of' of moment.
+  a number called 'the minute' is 'the minute of' of moment.
+  a number called 'the second' is 'the second of' of moment.
+  Return a number, {'the moment at' with 'the target year' and 'the target month' and 'the day of month' and 'the hour' and 'the minute' and 'the second'}.
+
+To 'years later' of a number called moment and a number called count.
+  Return a number, {'months later' of moment and {count multiply 12}}.
+
+(--- Anchors ---)
+
+To 'the start of the day of' of a number called moment.
+  a number called 'the day number' is 'floor divide' with moment and 86400.
+  Return a number, 'the day number' multiply 86400.
+
+To 'the start of the week of' of a number called moment.
+  a number called 'the start of the day' is 'the start of the day of' of moment.
+  a number called weekday is 'the weekday of' of moment.
+  Return a number, 'the start of the day' subtract {{weekday subtract 1} multiply 86400}.
+
+To 'the start of the month of' of a number called moment.
+  a map called civil is {}.
+  a number called 'the day number' is 'floor divide' with moment and 86400.
+  'read civil into' with 'the day number' and civil.
+  a number called 'the year' is civil's "year".
+  a number called 'the month' is civil's "month".
+  Return a number, {'the moment of' with 'the year' and 'the month' and 1}.
+
+To 'the start of the year of' of a number called moment.
+  a number called 'the year' is 'the year of' of moment.
+  Return a number, {'the moment of' with 'the year' and 1 and 1}.
+
+To 'the weekday on or after' of a number called moment and a number called weekday.
+  a number called 'the start of the day' is 'the start of the day of' of moment.
+  a number called 'the current weekday' is 'the weekday of' of moment.
+  a number called 'the difference' is 'floor modulo' with {weekday subtract 'the current weekday'} and 7.
+  Return a number, 'the start of the day' add {'the difference' multiply 86400}.
+
+To 'the weekday on or before' of a number called moment and a number called weekday.
+  a number called 'the start of the day' is 'the start of the day of' of moment.
+  a number called 'the current weekday' is 'the weekday of' of moment.
+  a number called 'the difference' is 'floor modulo' with {'the current weekday' subtract weekday} and 7.
+  Return a number, 'the start of the day' subtract {'the difference' multiply 86400}.
+
+To 'the days between' of a number called 'the earlier' and a number called 'the later'.
+  Return a number, 'floor divide' with {'the later' subtract 'the earlier'} and 86400.
+
+(--- Writing a moment out. The layout language is GNU's %-sequences,
+ walked one byte at a time into a growing buffer. )
+
+To 'write the byte' with a number called 'the byte to write' and a buffer called output.
+  set byte {output's size add 1} of output to 'the byte to write'.
+
+To 'uppercase text' of a text called words.
+  a buffer called letters is "{words}".
+  Create a buffer called upper.
+  a number called 'the length' is letters's size.
+  a number called position is 1.
+  a number called 'the byte' is 0.
+  While position is less than or equal to 'the length',
+    set 'the byte' to byte position of letters,
+    if 'the byte' is greater than or equal to 'a' and 'the byte' is less than or equal to 'z' then, set 'the byte' to 'the byte' subtract 32.
+    'write the byte' with 'the byte' and upper,
+    increment position.
+  Return a text, "{upper}".
+
+To 'lowercase text' of a text called words.
+  a buffer called letters is "{words}".
+  Create a buffer called lower.
+  a number called 'the length' is letters's size.
+  a number called position is 1.
+  a number called 'the byte' is 0.
+  While position is less than or equal to 'the length',
+    set 'the byte' to byte position of letters,
+    if 'the byte' is greater than or equal to 'A' and 'the byte' is less than or equal to 'Z' then, set 'the byte' to 'the byte' add 32.
+    'write the byte' with 'the byte' and lower,
+    increment position.
+  Return a text, "{lower}".
+
+(GNU's ^ (upper case if possible) and # (opposite case if possible),
+ restricted to the two shapes the layout's own names actually take: a
+ title-cased name (a short or long month or weekday name), where both
+ flags mean "upper case", and an all-upper-case one (%p, %Z), where ^ is a
+ no-op and # means "lower case". %P is neither: GNU's own %P ignores both
+ flags, which 'write a specifier' below honours by never calling either
+ of these for it.)
+To 'cased for a title' with a text called raw and a number called 'case flag'.
+  If 'case flag' is '^' then, Return a text, {'uppercase text' of raw}.
+  If 'case flag' is '#' then, Return a text, {'uppercase text' of raw}.
+  Return a text, raw.
+
+To 'cased for upper' with a text called raw and a number called 'case flag'.
+  If 'case flag' is '#' then, Return a text, {'lowercase text' of raw}.
+  Return a text, raw.
+
+(raw, right-aligned to width with 'the pad byte', unless 'suppress
+ padding' says not to bother. A leading '-' stays first, ahead of the
+ padding, the way a signed number is written.)
+To 'write padded' with a buffer called output and a text called raw and a number called width and a number called 'the pad byte' and a boolean called 'suppress padding'.
+  a buffer called letters is "{raw}".
+  a number called 'the length' is letters's size.
+  a number called 'the sign length' is 0.
+  a number called 'the first byte' is 0.
+  If 'the length' is greater than 0 then, set 'the first byte' to byte 1 of letters.
+  If 'the first byte' is '-' then, set 'the sign length' to 1.
+  a number called 'the pad count' is width subtract 'the length'.
+  If 'suppress padding' then, set 'the pad count' to 0.
+  If 'the pad count' is less than 0 then, set 'the pad count' to 0.
+  If 'the sign length' is 1 then, 'write the byte' with '-' and output.
+  Repeat 'the pad count' times, 'write the byte' with 'the pad byte' and output.
+  For each position from {1 add 'the sign length'} to 'the length', 'write the byte' with {byte position of letters} and output.
+
+(The default width and pad byte, unless the layout asked for its own.)
+To 'render specifier' with a buffer called output and a text called raw and a number called 'the default width' and a number called 'the default pad' and a number called 'pad flag' and a number called width.
+  a number called 'the width to use' is 'the default width'.
+  If width is greater than or equal to 0 then, set 'the width to use' to width.
+  a number called 'the pad to use' is 'the default pad'.
+  If 'pad flag' is '0' then, set 'the pad to use' to '0'.
+  If 'pad flag' is '_' then, set 'the pad to use' to ' '.
+  a boolean called 'suppress padding' is false.
+  If 'pad flag' is '-' then, set 'suppress padding' to true.
+  'write padded' with output and raw and 'the width to use' and 'the pad to use' and 'suppress padding'.
+
+To 'the twelve hour of' of a number called moment.
+  a number called 'the hour' is 'the hour of' of moment.
+  a number called h is 'floor modulo' with 'the hour' and 12.
+  If h is 0 then, Return a number, 12.
+  Return a number, h.
+
+To 'the am or pm of' of a number called moment.
+  a number called 'the hour' is 'the hour of' of moment.
+  If 'the hour' is less than 12 then, Return a text, "AM".
+  Return a text, "PM".
+
+(%U: Sunday-first week, 00 before the year's first Sunday. %W: the same
+ with Monday first. Both are floor((yday0 + 7 - wday) / 7), 0-indexed,
+ with wday counted from the matching first day.)
+To 'the sunday week of' of a number called moment.
+  a number called 'the day of year zero based' is {'the day of year of' of moment} subtract 1.
+  a number called 'the sunday based weekday' is 'the day of week sunday based of' of moment.
+  a number called 'the numerator' is {'the day of year zero based' add 7} subtract 'the sunday based weekday'.
+  Return a number, 'floor divide' with 'the numerator' and 7.
+
+To 'the monday week of' of a number called moment.
+  a number called 'the day of year zero based' is {'the day of year of' of moment} subtract 1.
+  a number called 'the monday based weekday' is {'the weekday of' of moment} subtract 1.
+  a number called 'the numerator' is {'the day of year zero based' add 7} subtract 'the monday based weekday'.
+  Return a number, 'floor divide' with 'the numerator' and 7.
+
+To 'the day of week sunday based of' of a number called moment.
+  Return a number, 'floor modulo' with {'the weekday of' of moment} and 7.
+
+(One %-sequence, whatever letter it turns out to be: every field the
+ layout table lists, computed once so the table below is just a lookup.
+ Answers whether spec was a sequence this library knows; 'write one
+ escape at' below is what falls back to a bare '%' when it says no.)
+To 'write a specifier' with a buffer called output and a number called moment and a number called spec and a number called 'pad flag' and a number called 'case flag' and a number called width.
+  a number called 'the year' is 'the year of' of moment.
+  a number called 'the month' is 'the month of' of moment.
+  a number called 'the day of month' is 'the day of month of' of moment.
+  a number called 'the hour' is 'the hour of' of moment.
+  a number called 'the minute' is 'the minute of' of moment.
+  a number called 'the second' is 'the second of' of moment.
+  a number called 'the weekday' is 'the weekday of' of moment.
+  a number called 'the day of year' is 'the day of year of' of moment.
+  a number called 'the iso week' is 'the iso week of' of moment.
+  a number called 'the iso week year' is 'the iso week year of' of moment.
+  a number called 'the quarter' is 'the quarter of' of moment.
+  a number called 'the century' is 'the century of' of moment.
+  a number called 'the short year' is 'floor modulo' with 'the year' and 100.
+  a number called 'the short iso week year' is 'floor modulo' with 'the iso week year' and 100.
+  a number called 'the twelve hour' is 'the twelve hour of' of moment.
+  a number called 'the sunday week' is 'the sunday week of' of moment.
+  a number called 'the monday week' is 'the monday week of' of moment.
+  a number called 'the sunday based weekday' is 'the day of week sunday based of' of moment.
+  a text called 'the month name' is 'the month name of' of 'the month'.
+  a text called 'the short month name' is 'the short month name of' of 'the month'.
+  a text called 'the weekday name' is 'the weekday name of' of 'the weekday'.
+  a text called 'the short weekday name' is 'the short weekday name of' of 'the weekday'.
+  a text called 'the am or pm' is 'the am or pm of' of moment.
+  a text called 'the year text' is "{'the year'}".
+  a text called 'the short year text' is "{'the short year'}".
+  a text called 'the month text' is "{'the month'}".
+  a text called 'the day of month text' is "{'the day of month'}".
+  a text called 'the hour text' is "{'the hour'}".
+  a text called 'the twelve hour text' is "{'the twelve hour'}".
+  a text called 'the minute text' is "{'the minute'}".
+  a text called 'the second text' is "{'the second'}".
+  a text called 'the weekday text' is "{'the weekday'}".
+  a text called 'the sunday based weekday text' is "{'the sunday based weekday'}".
+  a text called 'the day of year text' is "{'the day of year'}".
+  a text called 'the sunday week text' is "{'the sunday week'}".
+  a text called 'the monday week text' is "{'the monday week'}".
+  a text called 'the iso week text' is "{'the iso week'}".
+  a text called 'the iso week year text' is "{'the iso week year'}".
+  a text called 'the short iso week year text' is "{'the short iso week year'}".
+  a text called 'the quarter text' is "{'the quarter'}".
+  a text called 'the century text' is "{'the century'}".
+  a text called 'the moment text' is "{moment}".
+  If spec is 'Y' then, 'render specifier' with output and 'the year text' and 4 and '0' and 'pad flag' and width, Return a boolean, true.
+  If spec is 'y' then, 'render specifier' with output and 'the short year text' and 2 and '0' and 'pad flag' and width, Return a boolean, true.
+  If spec is 'm' then, 'render specifier' with output and 'the month text' and 2 and '0' and 'pad flag' and width, Return a boolean, true.
+  If spec is 'd' then, 'render specifier' with output and 'the day of month text' and 2 and '0' and 'pad flag' and width, Return a boolean, true.
+  If spec is 'e' then, 'render specifier' with output and 'the day of month text' and 2 and ' ' and 'pad flag' and width, Return a boolean, true.
+  If spec is 'H' then, 'render specifier' with output and 'the hour text' and 2 and '0' and 'pad flag' and width, Return a boolean, true.
+  If spec is 'k' then, 'render specifier' with output and 'the hour text' and 2 and ' ' and 'pad flag' and width, Return a boolean, true.
+  If spec is 'I' then, 'render specifier' with output and 'the twelve hour text' and 2 and '0' and 'pad flag' and width, Return a boolean, true.
+  If spec is 'l' then, 'render specifier' with output and 'the twelve hour text' and 2 and ' ' and 'pad flag' and width, Return a boolean, true.
+  If spec is 'M' then, 'render specifier' with output and 'the minute text' and 2 and '0' and 'pad flag' and width, Return a boolean, true.
+  If spec is 'S' then, 'render specifier' with output and 'the second text' and 2 and '0' and 'pad flag' and width, Return a boolean, true.
+  If spec is 'j' then, 'render specifier' with output and 'the day of year text' and 3 and '0' and 'pad flag' and width, Return a boolean, true.
+  If spec is 'u' then, 'render specifier' with output and 'the weekday text' and 1 and '0' and 'pad flag' and width, Return a boolean, true.
+  If spec is 'w' then, 'render specifier' with output and 'the sunday based weekday text' and 1 and '0' and 'pad flag' and width, Return a boolean, true.
+  If spec is 'U' then, 'render specifier' with output and 'the sunday week text' and 2 and '0' and 'pad flag' and width, Return a boolean, true.
+  If spec is 'W' then, 'render specifier' with output and 'the monday week text' and 2 and '0' and 'pad flag' and width, Return a boolean, true.
+  If spec is 'V' then, 'render specifier' with output and 'the iso week text' and 2 and '0' and 'pad flag' and width, Return a boolean, true.
+  If spec is 'G' then, 'render specifier' with output and 'the iso week year text' and 4 and '0' and 'pad flag' and width, Return a boolean, true.
+  If spec is 'g' then, 'render specifier' with output and 'the short iso week year text' and 2 and '0' and 'pad flag' and width, Return a boolean, true.
+  If spec is 'q' then, 'render specifier' with output and 'the quarter text' and 1 and '0' and 'pad flag' and width, Return a boolean, true.
+  If spec is 'C' then, 'render specifier' with output and 'the century text' and 2 and '0' and 'pad flag' and width, Return a boolean, true.
+  If spec is 's' then, 'render specifier' with output and 'the moment text' and 0 and '0' and 'pad flag' and width, Return a boolean, true.
+  If spec is 'a' then, a text called 'a cased' is 'cased for a title' with 'the short weekday name' and 'case flag', 'render specifier' with output and 'a cased' and 0 and ' ' and 'pad flag' and width, Return a boolean, true.
+  If spec is 'A' then, a text called 'a cased' is 'cased for a title' with 'the weekday name' and 'case flag', 'render specifier' with output and 'a cased' and 0 and ' ' and 'pad flag' and width, Return a boolean, true.
+  If spec is 'b' then, a text called 'a cased' is 'cased for a title' with 'the short month name' and 'case flag', 'render specifier' with output and 'a cased' and 0 and ' ' and 'pad flag' and width, Return a boolean, true.
+  If spec is 'B' then, a text called 'a cased' is 'cased for a title' with 'the month name' and 'case flag', 'render specifier' with output and 'a cased' and 0 and ' ' and 'pad flag' and width, Return a boolean, true.
+  If spec is 'h' then, Return a boolean, {'write a specifier' with output and moment and 'b' and 'pad flag' and 'case flag' and width}.
+  If spec is 'p' then, a text called 'a cased' is 'cased for upper' with 'the am or pm' and 'case flag', 'render specifier' with output and 'a cased' and 0 and ' ' and 'pad flag' and width, Return a boolean, true.
+  If spec is 'P' then, a text called 'p lowered' is 'lowercase text' of 'the am or pm', 'render specifier' with output and 'p lowered' and 0 and ' ' and 'pad flag' and width, Return a boolean, true.
+  If spec is 'Z' then, a text called 'z cased' is 'cased for upper' with "UTC" and 'case flag', 'render specifier' with output and 'z cased' and 0 and ' ' and 'pad flag' and width, Return a boolean, true.
+  If spec is 'z' then, append "+0000" to output, Return a boolean, true.
+  If spec is 'n' then, 'write the byte' with '\n' and output, Return a boolean, true.
+  If spec is 't' then, 'write the byte' with '\t' and output, Return a boolean, true.
+  If spec is '%' then, 'write the byte' with '%' and output, Return a boolean, true.
+  If spec is 'R' then, 'write a specifier' with output and moment and 'H' and 0 and 0 and -1, 'write the byte' with ':' and output, 'write a specifier' with output and moment and 'M' and 0 and 0 and -1, Return a boolean, true.
+  If spec is 'T' then, 'write a specifier' with output and moment and 'H' and 0 and 0 and -1, 'write the byte' with ':' and output, 'write a specifier' with output and moment and 'M' and 0 and 0 and -1, 'write the byte' with ':' and output, 'write a specifier' with output and moment and 'S' and 0 and 0 and -1, Return a boolean, true.
+  If spec is 'X' then, Return a boolean, {'write a specifier' with output and moment and 'T' and 0 and 0 and -1}.
+  If spec is 'D' then, 'write a specifier' with output and moment and 'm' and 0 and 0 and -1, 'write the byte' with '/' and output, 'write a specifier' with output and moment and 'd' and 0 and 0 and -1, 'write the byte' with '/' and output, 'write a specifier' with output and moment and 'y' and 0 and 0 and -1, Return a boolean, true.
+  If spec is 'x' then, Return a boolean, {'write a specifier' with output and moment and 'D' and 0 and 0 and -1}.
+  If spec is 'F' then, 'write a specifier' with output and moment and 'Y' and 0 and 0 and -1, 'write the byte' with '-' and output, 'write a specifier' with output and moment and 'm' and 0 and 0 and -1, 'write the byte' with '-' and output, 'write a specifier' with output and moment and 'd' and 0 and 0 and -1, Return a boolean, true.
+  If spec is 'r' then, 'write a specifier' with output and moment and 'I' and 0 and 0 and -1, 'write the byte' with ':' and output, 'write a specifier' with output and moment and 'M' and 0 and 0 and -1, 'write the byte' with ':' and output, 'write a specifier' with output and moment and 'S' and 0 and 0 and -1, 'write the byte' with ' ' and output, 'write a specifier' with output and moment and 'p' and 0 and 0 and -1, Return a boolean, true.
+  If spec is 'c' then, 'write a specifier' with output and moment and 'a' and 0 and 0 and -1, 'write the byte' with ' ' and output, 'write a specifier' with output and moment and 'b' and 0 and 0 and -1, 'write the byte' with ' ' and output, 'write a specifier' with output and moment and 'e' and 0 and 0 and -1, 'write the byte' with ' ' and output, 'write a specifier' with output and moment and 'T' and 0 and 0 and -1, 'write the byte' with ' ' and output, 'write a specifier' with output and moment and 'Y' and 0 and 0 and -1, Return a boolean, true.
+  Return a boolean, false.
+
+(The reader is standing on the '%' at position. Consumes the flags, the
+ width, and the one letter that follows - or, if what follows is not a
+ sequence this library knows, consumes nothing but the '%' itself, which
+ GNU also just copies through. Answers where to continue from.)
+To 'write one escape at' with a buffer called format and a number called length and a number called position and a number called moment and a buffer called output.
+  a number called i is position add 1.
+  a number called 'pad flag' is 0.
+  a number called 'case flag' is 0.
+  a number called c is 0.
+  a boolean called 'still a flag' is true.
+  While 'still a flag' and i is less than or equal to length,
+    set c to byte i of format,
+    set 'still a flag' to false,
+    if c is '-' then, set 'pad flag' to '-', set 'still a flag' to true.
+    if c is '_' then, set 'pad flag' to '_', set 'still a flag' to true.
+    if c is '0' then, set 'pad flag' to '0', set 'still a flag' to true.
+    if c is '^' then, set 'case flag' to '^', set 'still a flag' to true.
+    if c is '#' then, set 'case flag' to '#', set 'still a flag' to true.
+    if 'still a flag' then, increment i..
+  Create a buffer called digits.
+  a boolean called 'still a digit' is true.
+  While 'still a digit' and i is less than or equal to length,
+    set c to byte i of format,
+    set 'still a digit' to false,
+    if c is greater than or equal to '0' and c is less than or equal to '9' then, set 'still a digit' to true.
+    if 'still a digit' then, 'write the byte' with c and digits, increment i..
+  a number called width is -1.
+  If digits's size is greater than 0 then, a text called 'the width text' is "{digits}", set width to 'the width text' as a number.
+  If i is greater than length then, 'write the byte' with '%' and output, Return a number, i.
+  set c to byte i of format.
+  a boolean called 'it was written' is 'write a specifier' with output and moment and c and 'pad flag' and 'case flag' and width.
+  If 'it was written' is false then, 'write the byte' with '%' and output, Return a number, position add 1.
+  Return a number, i add 1.
+
+(The one export: any layout, walked byte by byte, with a '%'-sequence
+ handed to 'write one escape at' and everything else copied straight
+ through.)
+To 'the moment written as' of a number called moment and a text called layout.
+  Create a buffer called output.
+  a buffer called format is "{layout}".
+  a number called 'the length' is format's size.
+  a number called position is 1.
+  a number called 'the byte' is 0.
+  While position is less than or equal to 'the length',
+    set 'the byte' to byte position of format,
+    if 'the byte' is '%' then, set position to {'write one escape at' with format and 'the length' and position and moment and output}.
+    if 'the byte' is not '%' then, 'write the byte' with 'the byte' and output, increment position..
+  Return a text, "{output}".
+
+To 'the date of' of a number called moment.
+  Return a text, {'the moment written as' of moment and "%F"}.
+
+To 'the date and time of' of a number called moment.
+  Return a text, {'the moment written as' of moment and "%Y-%m-%dT%H:%M:%S+00:00"}.
+
+To 'the rfc 3339 date and time of' of a number called moment.
+  Return a text, {'the moment written as' of moment and "%Y-%m-%d %H:%M:%S+00:00"}.
+
+To 'the rfc email date of' of a number called moment.
+  Return a text, {'the moment written as' of moment and "%a, %d %b %Y %T %z"}.
+
+To 'the moment in words of' of a number called moment.
+  Return a text, {'the moment written as' of moment and "%a %b %e %H:%M:%S %Z %Y"}.
+
+(--- Reading a moment in. A reader is a map holding "position", the byte
+ it is standing on, counting from 1 - the same shape json's reader uses,
+ minus a "failed" flag, because every step here either advances the
+ reader on success or puts it back exactly where it found it on failure,
+ so a caller can always try the next form clean. )
+
+To 'the byte at' with a buffer called document and a map called reader.
+  a number called position is reader's "position".
+  If position is less than 1 then, Return a number, 0.
+  If position is greater than document's size then, Return a number, 0.
+  Return a number, byte position of document.
+
+To 'step past the byte' with a map called reader.
+  a number called position is reader's "position".
+  Set reader's "position" to position add 1.
+
+(Skips ' ' only - the one separator every accepted form uses - and
+ answers how many were skipped, so a caller can tell "at least one" from
+ "none at all".)
+To 'skip spaces' with a buffer called document and a map called reader.
+  a number called 'how many' is 0.
+  a number called 'the byte' is 'the byte at' with document and reader.
+  While 'the byte' is ' ',
+    'step past the byte' with reader,
+    increment 'how many',
+    set 'the byte' to 'the byte at' with document and reader.
+  Return a number, 'how many'.
+
+(Does the document read word, case-sensitively, where the reader is
+ standing? Steps past it on a match; leaves the reader untouched on a
+ miss, so a caller can try something else.)
+To 'the document reads' with a buffer called document and a map called reader and a text called word.
+  a buffer called wanted is "{word}".
+  a number called 'letters wanted' is wanted's size.
+  a number called start is reader's "position".
+  a number called position is start.
+  a number called 'letters matched' is 0.
+  a boolean called 'still matching' is true.
+  While 'still matching' and 'letters matched' is less than 'letters wanted',
+    a number called 'the byte found' is 'the byte at' with document and reader,
+    a number called 'the byte wanted' is byte {'letters matched' add 1} of wanted,
+    set 'still matching' to false,
+    if 'the byte found' is 'the byte wanted' then, set 'still matching' to true.
+    if 'still matching' then, 'step past the byte' with reader, increment 'letters matched'..
+  If 'still matching' is false then, Set reader's "position" to start, Return a boolean, false.
+  Return a boolean, true.
+
+(One ASCII letter, folded to lower case: everything but 'A'..'Z' passes
+ through unchanged, which is exactly right for a digit, a space, or a
+ punctuation byte.)
+To 'folded to lower case' of a number called 'the byte'.
+  If 'the byte' is greater than or equal to 'A' and 'the byte' is less than or equal to 'Z' then, Return a number, 'the byte' add 32.
+  Return a number, 'the byte'.
+
+(The case-insensitive twin of 'the document reads': word is given in
+ lower case, and every letter the document offers is folded to lower case
+ before it is compared.)
+To 'the document reads ignoring case' with a buffer called document and a map called reader and a text called word.
+  a buffer called wanted is "{word}".
+  a number called 'letters wanted' is wanted's size.
+  a number called start is reader's "position".
+  a number called 'letters matched' is 0.
+  a boolean called 'still matching' is true.
+  While 'still matching' and 'letters matched' is less than 'letters wanted',
+    a number called 'the byte found' is 'folded to lower case' of {'the byte at' with document and reader},
+    a number called 'the byte wanted' is byte {'letters matched' add 1} of wanted,
+    set 'still matching' to false,
+    if 'the byte found' is 'the byte wanted' then, set 'still matching' to true.
+    if 'still matching' then, 'step past the byte' with reader, increment 'letters matched'..
+  If 'still matching' is false then, Set reader's "position" to start, Return a boolean, false.
+  Return a boolean, true.
+
+(Exactly count digits, fixed width - the shape every field of the
+ compact and dashed forms takes. Answers the value, or -1 with the
+ reader put back where it started, when fewer than count digits are
+ there to read.)
+To 'read exactly' with a number called count and a buffer called document and a map called reader.
+  a number called start is reader's "position".
+  Create a buffer called digits.
+  a number called i is 0.
+  a boolean called ok is true.
+  While ok and i is less than count,
+    a number called b is 'the byte at' with document and reader,
+    set ok to false,
+    if b is greater than or equal to '0' and b is less than or equal to '9' then, set ok to true.
+    if ok then, 'write the byte' with b and digits, 'step past the byte' with reader, increment i..
+  If i is less than count then, Set reader's "position" to start, Return a number, -1.
+  a text called figures is "{digits}".
+  Return a number, figures as a number.
+
+(One or more digits, however many there are - the shape a human-typed
+ year, day, or clock component takes. Written into the outcome map's
+ "matched" and "value"; the reader does not move at all when there is no
+ digit to read.)
+To 'read some digits into' with a buffer called document and a map called reader and a map called outcome.
+  Create a buffer called digits.
+  a number called b is 'the byte at' with document and reader.
+  a boolean called 'still a digit' is false.
+  If b is greater than or equal to '0' and b is less than or equal to '9' then, set 'still a digit' to true.
+  While 'still a digit',
+    'write the byte' with b and digits,
+    'step past the byte' with reader,
+    set b to 'the byte at' with document and reader,
+    set 'still a digit' to false,
+    if b is greater than or equal to '0' and b is less than or equal to '9' then, set 'still a digit' to true..
+  If digits's size is 0 then, Set outcome's "matched" to false, Set outcome's "value" to 0, Return.
+  a text called figures is "{digits}".
+  Set outcome's "matched" to true.
+  Set outcome's "value" to {figures as a number}.
+
+(A space, tab, newline, or carriage return - the same four bytes json's
+ 'is whitespace' names.)
+To 'is a space byte' of a number called 'the byte'.
+  Return a boolean, 'the byte' is ' ' or 'the byte' is '\t' or 'the byte' is '\n' or 'the byte' is '\r'.
+
+(Leading and trailing space, tab, newline, and carriage return removed -
+ every accepted form is read "after trimming".)
+To 'the trimmed text of' of a text called words.
+  a buffer called letters is "{words}".
+  a number called 'the length' is letters's size.
+  a number called start is 1.
+  a number called 'the end' is 'the length'.
+  a number called b is 0.
+  a boolean called 'still whitespace at the start' is true.
+  While start is less than or equal to 'the end' and 'still whitespace at the start',
+    set b to byte start of letters,
+    set 'still whitespace at the start' to 'is a space byte' of b,
+    if 'still whitespace at the start' then, increment start..
+  a boolean called 'still whitespace at the end' is true.
+  While 'the end' is greater than or equal to start and 'still whitespace at the end',
+    set b to byte 'the end' of letters,
+    set 'still whitespace at the end' to 'is a space byte' of b,
+    if 'still whitespace at the end' then, decrement 'the end'..
+  Create a buffer called trimmed.
+  For each position from start to 'the end', 'write the byte' with {byte position of letters} and trimmed.
+  Return a text, "{trimmed}".
+
+(An optional UTC offset: Z, or a signed hh:mm, hhmm, or bare hh, applied
+ by SUBTRACTING it from a local reading to land on UTC. Written into the
+ outcome map's "matched" and "seconds"; not present is not a failure, so
+ the reader is left untouched and "matched" is simply false.)
+To 'read an offset into' with a buffer called document and a map called reader and a map called outcome.
+  a number called start is reader's "position".
+  a boolean called 'it reads z' is 'the document reads ignoring case' with document and reader and "z".
+  If 'it reads z' then, Set outcome's "matched" to true, Set outcome's "seconds" to 0, Return.
+  a number called c is 'the byte at' with document and reader.
+  a number called 'the sign' is 0.
+  If c is '+' then, set 'the sign' to 1.
+  If c is '-' then, set 'the sign' to -1.
+  If 'the sign' is 0 then, Set outcome's "matched" to false, Set outcome's "seconds" to 0, Return.
+  'step past the byte' with reader.
+  a number called 'the hour' is 'read exactly' with 2 and document and reader.
+  If 'the hour' is less than 0 then, Set reader's "position" to start, Set outcome's "matched" to false, Set outcome's "seconds" to 0, Return.
+  a number called 'the minute' is 0.
+  a boolean called 'it has a colon' is 'the document reads' with document and reader and ":".
+  If 'it has a colon' then, set 'the minute' to {'read exactly' with 2 and document and reader}.
+  If 'it has a colon' and 'the minute' is less than 0 then, Set reader's "position" to start, Set outcome's "matched" to false, Set outcome's "seconds" to 0, Return.
+  If 'it has a colon' is false then, a number called 'the fused minute' is 'read exactly' with 2 and document and reader, if 'the fused minute' is greater than or equal to 0 then, set 'the minute' to 'the fused minute'..
+  a number called 'the offset seconds' is {'the hour' multiply 3600} add {'the minute' multiply 60}.
+  Set outcome's "matched" to true.
+  Set outcome's "seconds" to {'the sign' multiply 'the offset seconds'}.
+
+(A month's full or short English name, case-insensitively - the full
+ names tried first, since a short name is a prefix of its own full one
+ and would otherwise steal the match. 0 when neither is there.)
+To 'read a month name at' with a buffer called document and a map called reader.
+  If {'the document reads ignoring case' with document and reader and "january"} then, Return a number, 1.
+  If {'the document reads ignoring case' with document and reader and "february"} then, Return a number, 2.
+  If {'the document reads ignoring case' with document and reader and "march"} then, Return a number, 3.
+  If {'the document reads ignoring case' with document and reader and "april"} then, Return a number, 4.
+  If {'the document reads ignoring case' with document and reader and "may"} then, Return a number, 5.
+  If {'the document reads ignoring case' with document and reader and "june"} then, Return a number, 6.
+  If {'the document reads ignoring case' with document and reader and "july"} then, Return a number, 7.
+  If {'the document reads ignoring case' with document and reader and "august"} then, Return a number, 8.
+  If {'the document reads ignoring case' with document and reader and "september"} then, Return a number, 9.
+  If {'the document reads ignoring case' with document and reader and "october"} then, Return a number, 10.
+  If {'the document reads ignoring case' with document and reader and "november"} then, Return a number, 11.
+  If {'the document reads ignoring case' with document and reader and "december"} then, Return a number, 12.
+  If {'the document reads ignoring case' with document and reader and "jan"} then, Return a number, 1.
+  If {'the document reads ignoring case' with document and reader and "feb"} then, Return a number, 2.
+  If {'the document reads ignoring case' with document and reader and "mar"} then, Return a number, 3.
+  If {'the document reads ignoring case' with document and reader and "apr"} then, Return a number, 4.
+  If {'the document reads ignoring case' with document and reader and "jun"} then, Return a number, 6.
+  If {'the document reads ignoring case' with document and reader and "jul"} then, Return a number, 7.
+  If {'the document reads ignoring case' with document and reader and "aug"} then, Return a number, 8.
+  If {'the document reads ignoring case' with document and reader and "sep"} then, Return a number, 9.
+  If {'the document reads ignoring case' with document and reader and "oct"} then, Return a number, 10.
+  If {'the document reads ignoring case' with document and reader and "nov"} then, Return a number, 11.
+  If {'the document reads ignoring case' with document and reader and "dec"} then, Return a number, 12.
+  Return a number, 0.
+
+(A weekday's full or short English name, case-insensitively, full names
+ first for the same reason. 0 when neither is there.)
+To 'read a weekday name at' with a buffer called document and a map called reader.
+  If {'the document reads ignoring case' with document and reader and "monday"} then, Return a number, 1.
+  If {'the document reads ignoring case' with document and reader and "tuesday"} then, Return a number, 2.
+  If {'the document reads ignoring case' with document and reader and "wednesday"} then, Return a number, 3.
+  If {'the document reads ignoring case' with document and reader and "thursday"} then, Return a number, 4.
+  If {'the document reads ignoring case' with document and reader and "friday"} then, Return a number, 5.
+  If {'the document reads ignoring case' with document and reader and "saturday"} then, Return a number, 6.
+  If {'the document reads ignoring case' with document and reader and "sunday"} then, Return a number, 7.
+  If {'the document reads ignoring case' with document and reader and "mon"} then, Return a number, 1.
+  If {'the document reads ignoring case' with document and reader and "tue"} then, Return a number, 2.
+  If {'the document reads ignoring case' with document and reader and "wed"} then, Return a number, 3.
+  If {'the document reads ignoring case' with document and reader and "thu"} then, Return a number, 4.
+  If {'the document reads ignoring case' with document and reader and "fri"} then, Return a number, 5.
+  If {'the document reads ignoring case' with document and reader and "sat"} then, Return a number, 6.
+  If {'the document reads ignoring case' with document and reader and "sun"} then, Return a number, 7.
+  Return a number, 0.
+
+(H:M, or H:M:S - each component any number of digits, as a person types
+ one. Written into the outcome map's "matched", "hour", "minute", and
+ "second"; the reader is put back where it found this if the shape is
+ not there after all.)
+To 'try a clock time at' with a buffer called document and a map called reader and a map called outcome.
+  a number called start is reader's "position".
+  a map called scratch is {"matched": false, "value": 0}.
+  'read some digits into' with document and reader and scratch.
+  a boolean called 'the hour matched' is scratch's "matched".
+  If 'the hour matched' is false then, Set outcome's "matched" to false, Return.
+  a number called 'the hour' is scratch's "value".
+  a boolean called 'has the first colon' is 'the document reads' with document and reader and ":".
+  If 'has the first colon' is false then, Set reader's "position" to start, Set outcome's "matched" to false, Return.
+  Set scratch's "matched" to false.
+  'read some digits into' with document and reader and scratch.
+  a boolean called 'the minute matched' is scratch's "matched".
+  If 'the minute matched' is false then, Set reader's "position" to start, Set outcome's "matched" to false, Return.
+  a number called 'the minute' is scratch's "value".
+  a number called 'the second' is 0.
+  a boolean called 'has the second colon' is 'the document reads' with document and reader and ":".
+  If 'has the second colon' then, Set scratch's "matched" to false, 'read some digits into' with document and reader and scratch, if scratch's "matched" is false then, Set reader's "position" to start, Set outcome's "matched" to false, Return..
+  If 'has the second colon' then, set 'the second' to {scratch's "value"}.
+  Set outcome's "matched" to true.
+  Set outcome's "hour" to 'the hour'.
+  Set outcome's "minute" to 'the minute'.
+  Set outcome's "second" to 'the second'.
+
+(Each of the five absolute forms below is a try: it either matches and
+ leaves the reader just past what it consumed, or it does not and puts
+ the reader back exactly where it found it, writing only outcome's
+ "matched" (and, on a match, "moment"). None of them raises the error
+ flag - that is what makes trying the next one, on a miss, safe.)
+
+To 'try the epoch form at' with a buffer called document and a map called reader and a map called outcome.
+  a number called start is reader's "position".
+  a boolean called 'has the at sign' is 'the document reads' with document and reader and "@".
+  If 'has the at sign' is false then, Set outcome's "matched" to false, Return.
+  a number called 'the sign' is 1.
+  a boolean called 'it is negative' is 'the document reads' with document and reader and "-".
+  If 'it is negative' then, set 'the sign' to -1.
+  a map called scratch is {"matched": false, "value": 0}.
+  'read some digits into' with document and reader and scratch.
+  a boolean called 'digits matched' is scratch's "matched".
+  If 'digits matched' is false then, Set reader's "position" to start, Set outcome's "matched" to false, Return.
+  a number called 'the value' is scratch's "value".
+  Set outcome's "matched" to true.
+  Set outcome's "moment" to {'the sign' multiply 'the value'}.
+
+(YYYYMMDD, optionally 'T'HHMMSS - fixed width throughout, and no offset:
+ the plan gives this form none.)
+To 'try the compact form at' with a buffer called document and a map called reader and a map called outcome.
+  a number called start is reader's "position".
+  a number called 'the year' is 'read exactly' with 4 and document and reader.
+  If 'the year' is less than 0 then, Set outcome's "matched" to false, Return.
+  a number called 'the month' is 'read exactly' with 2 and document and reader.
+  If 'the month' is less than 0 then, Set reader's "position" to start, Set outcome's "matched" to false, Return.
+  a number called 'the day of month' is 'read exactly' with 2 and document and reader.
+  If 'the day of month' is less than 0 then, Set reader's "position" to start, Set outcome's "matched" to false, Return.
+  a number called 'the hour' is 0.
+  a number called 'the minute' is 0.
+  a number called 'the second' is 0.
+  a boolean called 'has a time part' is 'the document reads ignoring case' with document and reader and "t".
+  If 'has a time part' then, set 'the hour' to {'read exactly' with 2 and document and reader}.
+  If 'has a time part' and 'the hour' is less than 0 then, Set reader's "position" to start, Set outcome's "matched" to false, Return.
+  If 'has a time part' then, set 'the minute' to {'read exactly' with 2 and document and reader}.
+  If 'has a time part' and 'the minute' is less than 0 then, Set reader's "position" to start, Set outcome's "matched" to false, Return.
+  If 'has a time part' then, set 'the second' to {'read exactly' with 2 and document and reader}.
+  If 'has a time part' and 'the second' is less than 0 then, Set reader's "position" to start, Set outcome's "matched" to false, Return.
+  a number called 'the next byte' is 'the byte at' with document and reader.
+  a boolean called 'the next byte is a digit' is false.
+  If 'the next byte' is greater than or equal to '0' and 'the next byte' is less than or equal to '9' then, set 'the next byte is a digit' to true.
+  If 'the next byte is a digit' then, Set reader's "position" to start, Set outcome's "matched" to false, Return.
+  a boolean called 'the date is valid' is 'is a valid date' of 'the year' and 'the month' and 'the day of month'.
+  If 'the date is valid' is false then, Set reader's "position" to start, Set outcome's "matched" to false, Return.
+  a boolean called 'the time is valid' is 'is a valid time' of 'the hour' and 'the minute' and 'the second'.
+  If 'the time is valid' is false then, Set reader's "position" to start, Set outcome's "matched" to false, Return.
+  Set outcome's "matched" to true.
+  Set outcome's "moment" to {'the moment at' with 'the year' and 'the month' and 'the day of month' and 'the hour' and 'the minute' and 'the second'}.
+
+(YYYY-MM-DD, optionally (' '|'T')HH:MM:SS, optionally an offset - the
+ only one of the five with an offset, per the plan.)
+To 'try the dashed iso form at' with a buffer called document and a map called reader and a map called outcome.
+  a number called start is reader's "position".
+  a number called 'the year' is 'read exactly' with 4 and document and reader.
+  If 'the year' is less than 0 then, Set outcome's "matched" to false, Return.
+  a boolean called 'has the first dash' is 'the document reads' with document and reader and "-".
+  If 'has the first dash' is false then, Set reader's "position" to start, Set outcome's "matched" to false, Return.
+  a number called 'the month' is 'read exactly' with 2 and document and reader.
+  If 'the month' is less than 0 then, Set reader's "position" to start, Set outcome's "matched" to false, Return.
+  a boolean called 'has the second dash' is 'the document reads' with document and reader and "-".
+  If 'has the second dash' is false then, Set reader's "position" to start, Set outcome's "matched" to false, Return.
+  a number called 'the day of month' is 'read exactly' with 2 and document and reader.
+  If 'the day of month' is less than 0 then, Set reader's "position" to start, Set outcome's "matched" to false, Return.
+  a number called 'the hour' is 0.
+  a number called 'the minute' is 0.
+  a number called 'the second' is 0.
+  a number called 'the position before the time part' is reader's "position".
+  a boolean called 'has a separator' is 'the document reads' with document and reader and " ".
+  If 'has a separator' is false then, set 'has a separator' to {'the document reads ignoring case' with document and reader and "t"}.
+  a map called clock is {"matched": false, "hour": 0, "minute": 0, "second": 0}.
+  If 'has a separator' then, 'try a clock time at' with document and reader and clock.
+  a boolean called 'the time matched' is clock's "matched".
+  If 'has a separator' and 'the time matched' then, set 'the hour' to {clock's "hour"}, set 'the minute' to {clock's "minute"}, set 'the second' to {clock's "second"}.
+  If 'the time matched' is false then, Set reader's "position" to 'the position before the time part'.
+  a boolean called 'the date is valid' is 'is a valid date' of 'the year' and 'the month' and 'the day of month'.
+  If 'the date is valid' is false then, Set reader's "position" to start, Set outcome's "matched" to false, Return.
+  a boolean called 'the time is valid' is 'is a valid time' of 'the hour' and 'the minute' and 'the second'.
+  If 'the time is valid' is false then, Set reader's "position" to start, Set outcome's "matched" to false, Return.
+  a map called offset is {"matched": false, "seconds": 0}.
+  'read an offset into' with document and reader and offset.
+  a number called 'the offset seconds' is 0.
+  If offset's "matched" then, set 'the offset seconds' to {offset's "seconds"}.
+  a number called 'the local moment' is {'the moment at' with 'the year' and 'the month' and 'the day of month' and 'the hour' and 'the minute' and 'the second'}.
+  Set outcome's "matched" to true.
+  Set outcome's "moment" to {'the local moment' subtract 'the offset seconds'}.
+
+(DIGITS SPACE MONTHNAME SPACE DIGITS, optionally SPACE-then-clock-time -
+ "29 Jul 2026" and "29 July 2026". A trailing time that does not parse is
+ not this form's failure: the reader just lands after the year, midnight
+ assumed, the way GNU reads a bare date with garbage after it.)
+To 'try a day month year at' with a buffer called document and a map called reader and a map called outcome.
+  a number called start is reader's "position".
+  a map called scratch is {"matched": false, "value": 0}.
+  'read some digits into' with document and reader and scratch.
+  a boolean called 'day matched' is scratch's "matched".
+  If 'day matched' is false then, Set outcome's "matched" to false, Return.
+  a number called 'the day of month' is scratch's "value".
+  a number called 'the spaces after the day' is 'skip spaces' with document and reader.
+  If 'the spaces after the day' is 0 then, Set reader's "position" to start, Set outcome's "matched" to false, Return.
+  a number called 'the month' is 'read a month name at' with document and reader.
+  If 'the month' is 0 then, Set reader's "position" to start, Set outcome's "matched" to false, Return.
+  a number called 'the spaces after the month' is 'skip spaces' with document and reader.
+  If 'the spaces after the month' is 0 then, Set reader's "position" to start, Set outcome's "matched" to false, Return.
+  Set scratch's "matched" to false.
+  'read some digits into' with document and reader and scratch.
+  a boolean called 'year matched' is scratch's "matched".
+  If 'year matched' is false then, Set reader's "position" to start, Set outcome's "matched" to false, Return.
+  a number called 'the year' is scratch's "value".
+  a number called 'the position after the year' is reader's "position".
+  a number called 'the spaces before the time' is 'skip spaces' with document and reader.
+  a map called clock is {"matched": false, "hour": 0, "minute": 0, "second": 0}.
+  'try a clock time at' with document and reader and clock.
+  a number called 'the hour' is 0.
+  a number called 'the minute' is 0.
+  a number called 'the second' is 0.
+  a boolean called 'the time matched' is clock's "matched".
+  If 'the time matched' then, set 'the hour' to {clock's "hour"}, set 'the minute' to {clock's "minute"}, set 'the second' to {clock's "second"}.
+  If 'the time matched' is false then, Set reader's "position" to 'the position after the year'.
+  a boolean called 'the date is valid' is 'is a valid date' of 'the year' and 'the month' and 'the day of month'.
+  If 'the date is valid' is false then, Set reader's "position" to start, Set outcome's "matched" to false, Return.
+  a boolean called 'the time is valid' is 'is a valid time' of 'the hour' and 'the minute' and 'the second'.
+  If 'the time is valid' is false then, Set reader's "position" to start, Set outcome's "matched" to false, Return.
+  Set outcome's "matched" to true.
+  Set outcome's "moment" to {'the moment at' with 'the year' and 'the month' and 'the day of month' and 'the hour' and 'the minute' and 'the second'}.
+
+(MONTHNAME SPACE DIGITS [','] SPACE DIGITS, optionally the same trailing
+ time - "Jul 29 2026" and "July 29, 2026". The comma is optional either
+ way; nothing here requires it.)
+To 'try a month day year at' with a buffer called document and a map called reader and a map called outcome.
+  a number called start is reader's "position".
+  a number called 'the month' is 'read a month name at' with document and reader.
+  If 'the month' is 0 then, Set outcome's "matched" to false, Return.
+  a number called 'the spaces after the month' is 'skip spaces' with document and reader.
+  If 'the spaces after the month' is 0 then, Set reader's "position" to start, Set outcome's "matched" to false, Return.
+  a map called scratch is {"matched": false, "value": 0}.
+  'read some digits into' with document and reader and scratch.
+  a boolean called 'day matched' is scratch's "matched".
+  If 'day matched' is false then, Set reader's "position" to start, Set outcome's "matched" to false, Return.
+  a number called 'the day of month' is scratch's "value".
+  a boolean called 'had a comma' is 'the document reads' with document and reader and ",".
+  a number called 'the spaces after the day' is 'skip spaces' with document and reader.
+  If 'the spaces after the day' is 0 then, Set reader's "position" to start, Set outcome's "matched" to false, Return.
+  Set scratch's "matched" to false.
+  'read some digits into' with document and reader and scratch.
+  a boolean called 'year matched' is scratch's "matched".
+  If 'year matched' is false then, Set reader's "position" to start, Set outcome's "matched" to false, Return.
+  a number called 'the year' is scratch's "value".
+  a number called 'the position after the year' is reader's "position".
+  a number called 'the spaces before the time' is 'skip spaces' with document and reader.
+  a map called clock is {"matched": false, "hour": 0, "minute": 0, "second": 0}.
+  'try a clock time at' with document and reader and clock.
+  a number called 'the hour' is 0.
+  a number called 'the minute' is 0.
+  a number called 'the second' is 0.
+  a boolean called 'the time matched' is clock's "matched".
+  If 'the time matched' then, set 'the hour' to {clock's "hour"}, set 'the minute' to {clock's "minute"}, set 'the second' to {clock's "second"}.
+  If 'the time matched' is false then, Set reader's "position" to 'the position after the year'.
+  a boolean called 'the date is valid' is 'is a valid date' of 'the year' and 'the month' and 'the day of month'.
+  If 'the date is valid' is false then, Set reader's "position" to start, Set outcome's "matched" to false, Return.
+  a boolean called 'the time is valid' is 'is a valid time' of 'the hour' and 'the minute' and 'the second'.
+  If 'the time is valid' is false then, Set reader's "position" to start, Set outcome's "matched" to false, Return.
+  Set outcome's "matched" to true.
+  Set outcome's "moment" to {'the moment at' with 'the year' and 'the month' and 'the day of month' and 'the hour' and 'the minute' and 'the second'}.
+
+(Every accepted absolute form, tried in turn; the first one to match
+ wins. Written into outcome's "matched" and "moment", exactly as each of
+ the five it calls does.)
+To 'try an absolute moment at' with a buffer called document and a map called reader and a map called outcome.
+  'try the epoch form at' with document and reader and outcome.
+  a boolean called 'matched the epoch form' is outcome's "matched".
+  If 'matched the epoch form' then, Return.
+  'try the dashed iso form at' with document and reader and outcome.
+  a boolean called 'matched the dashed form' is outcome's "matched".
+  If 'matched the dashed form' then, Return.
+  'try the compact form at' with document and reader and outcome.
+  a boolean called 'matched the compact form' is outcome's "matched".
+  If 'matched the compact form' then, Return.
+  'try a day month year at' with document and reader and outcome.
+  a boolean called 'matched the day month year form' is outcome's "matched".
+  If 'matched the day month year form' then, Return.
+  'try a month day year at' with document and reader and outcome.
+
+To 'the moment read from' of a text called source.
+  a text called trimmed is 'the trimmed text of' of source.
+  a buffer called document is "{trimmed}".
+  a map called reader is {"position": 1}.
+  a map called outcome is {"matched": false, "moment": 0}.
+  'try an absolute moment at' with document and reader and outcome.
+  a boolean called 'it matched' is outcome's "matched".
+  If 'it matched' is false then, Return a number, 0.
+  a number called 'the position' is reader's "position".
+  If 'the position' is less than or equal to document's size then, Return a number, 0.
+  Return a number, outcome's "moment".
+
+To 'reads as a moment' of a text called source.
+  a text called trimmed is 'the trimmed text of' of source.
+  a buffer called document is "{trimmed}".
+  a map called reader is {"position": 1}.
+  a map called outcome is {"matched": false, "moment": 0}.
+  'try an absolute moment at' with document and reader and outcome.
+  a boolean called 'it matched' is outcome's "matched".
+  If 'it matched' is false then, Return a boolean, false.
+  a number called 'the position' is reader's "position".
+  Return a boolean, 'the position' is greater than document's size.
+
+(--- Relative descriptions: the half of GNU's date -d people actually
+ use - an optional absolute moment, above, followed by zero or more
+ relative items in either order, each applied to a running "base" moment
+ held in a map so every item sees where the one before it landed. )
+
+(A unit word, singular or plural - plural tried first, since a singular
+ name is a prefix of its own plural and would otherwise steal the match.
+ 1 second, 2 minute, 3 hour, 4 day, 5 week, 6 month, 7 year; 0 for none.)
+To 'read a unit word at' with a buffer called document and a map called reader.
+  If {'the document reads ignoring case' with document and reader and "seconds"} then, Return a number, 1.
+  If {'the document reads ignoring case' with document and reader and "second"} then, Return a number, 1.
+  If {'the document reads ignoring case' with document and reader and "minutes"} then, Return a number, 2.
+  If {'the document reads ignoring case' with document and reader and "minute"} then, Return a number, 2.
+  If {'the document reads ignoring case' with document and reader and "hours"} then, Return a number, 3.
+  If {'the document reads ignoring case' with document and reader and "hour"} then, Return a number, 3.
+  If {'the document reads ignoring case' with document and reader and "days"} then, Return a number, 4.
+  If {'the document reads ignoring case' with document and reader and "day"} then, Return a number, 4.
+  If {'the document reads ignoring case' with document and reader and "weeks"} then, Return a number, 5.
+  If {'the document reads ignoring case' with document and reader and "week"} then, Return a number, 5.
+  If {'the document reads ignoring case' with document and reader and "months"} then, Return a number, 6.
+  If {'the document reads ignoring case' with document and reader and "month"} then, Return a number, 6.
+  If {'the document reads ignoring case' with document and reader and "years"} then, Return a number, 7.
+  If {'the document reads ignoring case' with document and reader and "year"} then, Return a number, 7.
+  Return a number, 0.
+
+(count of that unit, later than base - the one export each of the seven
+ unit words above is spelling out.)
+To 'apply a unit' with a number called base and a number called 'the unit' and a number called count.
+  If 'the unit' is 1 then, Return a number, {'seconds later' of base and count}.
+  If 'the unit' is 2 then, Return a number, {'minutes later' of base and count}.
+  If 'the unit' is 3 then, Return a number, {'hours later' of base and count}.
+  If 'the unit' is 4 then, Return a number, {'days later' of base and count}.
+  If 'the unit' is 5 then, Return a number, {'weeks later' of base and count}.
+  If 'the unit' is 6 then, Return a number, {'months later' of base and count}.
+  Return a number, {'years later' of base and count}.
+
+(One relative item, whatever it turns out to be, applied to state's
+ "base" in place. Written into outcome's "matched"; a miss leaves both
+ the reader and state untouched, so a caller can try the next thing at
+ the same position - except that there is no next thing, every accepted
+ word here being distinct, so a miss always means the description is
+ over or malformed.)
+To 'try a relative item at' with a buffer called document and a map called reader and a map called state and a map called outcome.
+  a number called start is reader's "position".
+  a boolean called 'it is now' is 'the document reads ignoring case' with document and reader and "now".
+  If 'it is now' then, Set outcome's "matched" to true, Return.
+  a boolean called 'it is today' is 'the document reads ignoring case' with document and reader and "today".
+  If 'it is today' then, a number called base is state's "base", Set state's "base" to {'the start of the day of' of base}, Set outcome's "matched" to true, Return.
+  a boolean called 'it is tomorrow' is 'the document reads ignoring case' with document and reader and "tomorrow".
+  If 'it is tomorrow' then, a number called base is state's "base", a number called 'the start of today' is {'the start of the day of' of base}, Set state's "base" to {'days later' of 'the start of today' and 1}, Set outcome's "matched" to true, Return.
+  a boolean called 'it is yesterday' is 'the document reads ignoring case' with document and reader and "yesterday".
+  If 'it is yesterday' then, a number called base is state's "base", a number called 'the start of today' is {'the start of the day of' of base}, Set state's "base" to {'days later' of 'the start of today' and -1}, Set outcome's "matched" to true, Return.
+  a boolean called 'says next' is 'the document reads ignoring case' with document and reader and "next".
+  a boolean called 'says last' is false.
+  If 'says next' is false then, set 'says last' to {'the document reads ignoring case' with document and reader and "last"}.
+  a boolean called 'says next or last' is false.
+  If 'says next' then, set 'says next or last' to true.
+  If 'says last' then, set 'says next or last' to true.
+  a number called 'the direction' is 1.
+  If 'says last' then, set 'the direction' to -1.
+  a number called 'the spaces after next or last' is 0.
+  If 'says next or last' then, set 'the spaces after next or last' to {'skip spaces' with document and reader}.
+  If 'says next or last' and 'the spaces after next or last' is 0 then, Set reader's "position" to start, Set outcome's "matched" to false, Return.
+  a number called 'the unit after next or last' is 0.
+  If 'says next or last' then, set 'the unit after next or last' to {'read a unit word at' with document and reader}.
+  If 'says next or last' and 'the unit after next or last' is not 0 then, a number called base is state's "base", Set state's "base" to {'apply a unit' with base and 'the unit after next or last' and 'the direction'}, Set outcome's "matched" to true, Return.
+  a number called 'the weekday after next or last' is 0.
+  If 'says next or last' and 'the unit after next or last' is 0 then, set 'the weekday after next or last' to {'read a weekday name at' with document and reader}.
+  If 'says next or last' and 'the weekday after next or last' is 0 then, Set reader's "position" to start, Set outcome's "matched" to false, Return.
+  If 'says next' and 'the weekday after next or last' is not 0 then, a number called base is state's "base", a number called 'the day after' is {'days later' of base and 1}, Set state's "base" to {'the weekday on or after' of 'the day after' and 'the weekday after next or last'}, Set outcome's "matched" to true, Return.
+  If 'says last' and 'the weekday after next or last' is not 0 then, a number called base is state's "base", a number called 'the day before' is {'days later' of base and -1}, Set state's "base" to {'the weekday on or before' of 'the day before' and 'the weekday after next or last'}, Set outcome's "matched" to true, Return.
+  a number called 'the bare weekday' is 'read a weekday name at' with document and reader.
+  If 'the bare weekday' is not 0 then, a number called base is state's "base", Set state's "base" to {'the weekday on or after' of base and 'the bare weekday'}, Set outcome's "matched" to true, Return.
+  a number called 'the sign' is 1.
+  a boolean called 'has a sign' is 'the document reads' with document and reader and "+".
+  If 'has a sign' is false then, a boolean called 'has a minus' is 'the document reads' with document and reader and "-", if 'has a minus' then, set 'the sign' to -1, set 'has a sign' to true..
+  If 'has a sign' then, 'skip spaces' with document and reader.
+  a map called scratch is {"matched": false, "value": 0}.
+  'read some digits into' with document and reader and scratch.
+  a boolean called 'digits matched' is scratch's "matched".
+  If 'digits matched' is false then, Set reader's "position" to start, Set outcome's "matched" to false, Return.
+  a number called count is {'the sign' multiply {scratch's "value"}}.
+  a number called 'the spaces before the unit' is 'skip spaces' with document and reader.
+  If 'the spaces before the unit' is 0 then, Set reader's "position" to start, Set outcome's "matched" to false, Return.
+  a number called 'the unit' is 'read a unit word at' with document and reader.
+  If 'the unit' is 0 then, Set reader's "position" to start, Set outcome's "matched" to false, Return.
+  a number called 'the position before ago' is reader's "position".
+  'skip spaces' with document and reader.
+  a boolean called 'has ago' is 'the document reads ignoring case' with document and reader and "ago".
+  If 'has ago' is false then, Set reader's "position" to 'the position before ago'.
+  If 'has ago' then, set count to {0 subtract count}.
+  a number called base is state's "base".
+  Set state's "base" to {'apply a unit' with base and 'the unit' and count}.
+  Set outcome's "matched" to true.
+
+(Every relative item there is, applied in turn, until one does not match
+ or the text runs out; written into result's "items applied".)
+To 'parse the relative items at' with a buffer called document and a map called reader and a map called state and a map called result.
+  a number called 'items applied' is 0.
+  a boolean called 'still going' is true.
+  While 'still going',
+    'skip spaces' with document and reader,
+    a number called 'the position' is reader's "position",
+    set 'still going' to false,
+    a map called item is {"matched": false},
+    if 'the position' is less than or equal to document's size then, 'try a relative item at' with document and reader and state and item.
+    if item's "matched" then, increment 'items applied', set 'still going' to true..
+  Set result's "items applied" to 'items applied'.
+
+To 'the moment described by' of a text called source and a number called 'the moment it is relative to'.
+  a text called trimmed is 'the trimmed text of' of source.
+  a buffer called document is "{trimmed}".
+  a map called reader is {"position": 1}.
+  a map called outcome is {"matched": false, "moment": 0}.
+  'try an absolute moment at' with document and reader and outcome.
+  a boolean called 'has an absolute prefix' is outcome's "matched".
+  a map called state is {"base": 0}.
+  If 'has an absolute prefix' then, Set state's "base" to {outcome's "moment"}.
+  If 'has an absolute prefix' is false then, Set state's "base" to 'the moment it is relative to'.
+  a map called result is {"items applied": 0}.
+  'parse the relative items at' with document and reader and state and result.
+  a number called 'items applied' is result's "items applied".
+  a boolean called 'had at least one thing' is false.
+  If 'has an absolute prefix' then, set 'had at least one thing' to true.
+  If 'items applied' is greater than 0 then, set 'had at least one thing' to true.
+  If 'had at least one thing' is false then, Return a number, 0.
+  a number called 'the final position' is reader's "position".
+  If 'the final position' is less than or equal to document's size then, Return a number, 0.
+  Return a number, state's "base".
+
+To 'reads as a description' of a text called source.
+  a text called trimmed is 'the trimmed text of' of source.
+  a buffer called document is "{trimmed}".
+  a map called reader is {"position": 1}.
+  a map called outcome is {"matched": false, "moment": 0}.
+  'try an absolute moment at' with document and reader and outcome.
+  a boolean called 'has an absolute prefix' is outcome's "matched".
+  a map called state is {"base": 0}.
+  a map called result is {"items applied": 0}.
+  'parse the relative items at' with document and reader and state and result.
+  a number called 'items applied' is result's "items applied".
+  a boolean called 'had at least one thing' is false.
+  If 'has an absolute prefix' then, set 'had at least one thing' to true.
+  If 'items applied' is greater than 0 then, set 'had at least one thing' to true.
+  If 'had at least one thing' is false then, Return a boolean, false.
+  a number called 'the final position' is reader's "position".
+  Return a boolean, 'the final position' is greater than document's size.

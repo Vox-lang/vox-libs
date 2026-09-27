@@ -26,7 +26,7 @@ ifneq ($(VOX_CORE_PATH),)
 export VOX_CORE_PATH
 endif
 
-LIBS  := textkit process json
+LIBS  := textkit process json date
 BUILD := build
 
 .PHONY: all build install uninstall test clean $(LIBS)
