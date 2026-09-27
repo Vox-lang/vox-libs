@@ -7,6 +7,42 @@ the collection as a package; each library also carries its own `Library
 <name> version "x.y".` declaration, which is what a consumer's
 `see ... version ... from` matches against.
 
+## [0.3.0] - unreleased
+
+### Added
+
+- **textkit** (library version 0.2) — three exports make it a general
+  tokenizer rather than one that only splits on whitespace: `'split on'`
+  splits a text on any separator (empty fields kept, a trailing separator
+  yields a trailing empty field, an empty separator returns the text
+  unsplit), `'split lines'` splits on `\n` with a preceding `\r` dropped
+  and no trailing empty element from a final newline, and `replace`
+  replaces every non-overlapping occurrence of a needle left to right. The
+  0.1 exports are unchanged in name and behaviour, and `join` is `'split
+  on'`'s inverse, the tests say so with a round trip. `textkit/textkit_tests.vox`
+  ships 22 such assertions, in the json pattern.
+
+### Changed
+
+- **json** test and demo fixtures — register entry #111 (fixed in vox
+  0.4.15) made storing a collection into, or reading one out of, another
+  collection copy it rather than alias it. Two consequences, both in the
+  fixtures rather than in `json.vox` itself, which is untouched:
+  - A map or list can no longer hold itself, so there is nothing left for
+    the depth guard to catch on that front. Removed the two self-holding
+    test claims from `json/json_tests.vox` and the self-holding
+    demonstration from `json/json_demo.vox` (keeping its `ten deep` line
+    and `--- depth ---` heading), each with a one-sentence comment saying
+    why. Both fixtures' `.expected` transcripts are updated to match —
+    `json_tests.expected` now reads 148 assertions, 0 failures, and
+    `json_demo.expected` drops the one line that reported a byte count
+    for a map that no longer holds itself.
+  - `json_demo.vox`'s `tags`, read out of `person` before being appended
+    to, is its own copy: the demo now sets `person`'s `"tags"` back to
+    the grown list, with a comment saying why, so the written document
+    still shows all three tags as it always did — no `.expected` change
+    needed for that part.
+
 ## [0.2.0] - 2026-08-23
 
 ### Added

@@ -10,9 +10,9 @@
 
  Build and consume:
    vox textkit.vox --shared -o libtextkit.so
-   see textkit version "0.1" from "./libtextkit.lib".)
+   see textkit version "0.2" from "./libtextkit.lib".)
 
-Library textkit version "0.1".
+Library textkit version "0.2".
 
 (1 when byte b is space, tab, newline, or carriage return; else 0)
 To 'is whitespace' of a number called b.
@@ -221,6 +221,70 @@ To 'split words' of a text called t.
     if ws is 1 and word's size is greater than 0 then, append 'buffer text' of word to out, clear word.
     increment i.
   Return a list, out.
+
+(The fields between each occurrence of separator, in order. An empty
+ field is kept, so a run of separators, or one at either end, shows up as
+ an empty element rather than vanishing. An empty separator does not
+ split at all: the whole text comes back as its own one-element list.)
+To 'split on' of a text called content and a text called separator.
+  a list called fields is [].
+  a number called 'separator length' is 'text length' of separator.
+  a text called rest is content.
+  a number called found is 0.
+  If 'separator length' is greater than 0 then, set found to 'index of' of rest and separator.
+  While found is greater than 0,
+    a number called 'field end' is found subtract 1,
+    a text called field is slice of rest and 1 and 'field end',
+    append field to fields,
+    a number called 'rest start' is found add 'separator length',
+    a number called 'rest end' is 'text length' of rest,
+    set rest to slice of rest and 'rest start' and 'rest end',
+    set found to 'index of' of rest and separator.
+  append rest to fields.
+  Return a list, fields.
+
+(One element per line, splitting on the newline byte. A carriage return
+ immediately before it is dropped too, so a file with Windows line
+ endings reads the same as one with plain ones. A trailing newline ends
+ the last line rather than opening an empty one after it, and the empty
+ text has no lines at all.)
+To 'split lines' of a text called content.
+  a number called 'content length' is 'text length' of content.
+  If 'content length' is 0 then, Return a list, [].
+  a text called 'unterminated content' is content.
+  a boolean called 'ends in a newline' is 'ends with' of content and "\n".
+  If 'ends in a newline' then, set 'unterminated content' to slice of content and 1 and {'content length' subtract 1}.
+  a list called lines is 'split on' of 'unterminated content' and "\n".
+  a list called 'clean lines' is [].
+  For each line from lines,
+    a number called 'line length' is 'text length' of line,
+    a text called 'clean line' is line,
+    a boolean called 'ends in a carriage return' is 'ends with' of line and "\r",
+    If 'ends in a carriage return' then, set 'clean line' to slice of line and 1 and {'line length' subtract 1}.
+    append 'clean line' to 'clean lines'.
+  Return a list, 'clean lines'.
+
+(Every non-overlapping occurrence of needle replaced with replacement,
+ scanning left to right. An empty needle returns the text unchanged,
+ since there is no occurrence to replace.)
+To replace of a text called content and a text called needle and a text called replacement.
+  a number called 'needle length' is 'text length' of needle.
+  If 'needle length' is 0 then, Return a text, content.
+  Create a buffer called out.
+  a text called rest is content.
+  a number called found is 'index of' of rest and needle.
+  While found is greater than 0,
+    a number called 'before end' is found subtract 1,
+    a text called before is slice of rest and 1 and 'before end',
+    append "{before}" to out,
+    append "{replacement}" to out,
+    a number called 'rest start' is found add 'needle length',
+    a number called 'rest end' is 'text length' of rest,
+    set rest to slice of rest and 'rest start' and 'rest end',
+    set found to 'index of' of rest and needle.
+  append "{rest}" to out.
+  a text called 'the replaced text' is "{out}".
+  Return a text, 'the replaced text'.
 
 (Elements of items joined into one text with sep between each pair)
 To join of a list called items and a text called sep.

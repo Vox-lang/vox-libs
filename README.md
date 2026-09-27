@@ -28,7 +28,7 @@ object in `/usr/lib64/`, where `ldconfig` can index them.
 
 | Library | What it does |
 |---|---|
-| **textkit** | Substring, search, trim, case, and tokenizing — the byte loops every Vox author would otherwise hand-roll. |
+| **textkit** | Substring, search, trim, case, and tokenizing — on whitespace, on a separator, or into lines — the byte loops every Vox author would otherwise hand-roll. |
 | **process** | Decodes a raw wait status into an exit code or terminating signal, the way `<sys/wait.h>` does for C. |
 | **json** | Full JSON serialisation and deserialisation — `'to json'` and `'from json'`, the pair Python spells `dumps` and `loads`. |
 

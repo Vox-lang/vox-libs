@@ -14,7 +14,7 @@
    vox textkit_demo.vox --link textkit -o textkit_demo
    ./textkit_demo)
 
-see textkit version "0.1" from "./libtextkit.lib".
+see textkit version "0.2" from "./libtextkit.lib".
 
 ('is whitespace' judges a single byte and answers 1 or 0. Space, tab,
  newline, and carriage return count; a letter and a zero byte do not.)
@@ -166,6 +166,44 @@ Print 'no words at all''s size.
 a list called 'nothing to split' is 'split words' of "".
 Print 'nothing to split''s size.
 
+('split on' cuts on a separator you name instead of any whitespace, which
+ is the tool for a delimited record: a CSV field, a PATH entry, a
+ key=value line. Every field between two separators is kept even when it
+ is empty, so a run of separators or one at either end shows up as an
+ empty element, and an empty separator does not split at all.)
+a list called 'comma fields' is 'split on' of "a,,b," and ",".
+Print the 'comma fields'.
+a list called 'nothing to split on' is 'split on' of "a,b" and "".
+Print the 'nothing to split on'.
+a list called 'an empty text split' is 'split on' of "" and ",".
+Print the 'an empty text split'.
+a list called 'a separator longer than one byte' is 'split on' of "a::b::c" and "::".
+Print the 'a separator longer than one byte'.
+
+('split lines' is 'split on' by the newline, with a carriage return right
+ before it dropped so a Windows line ending reads the same as a plain
+ one. A trailing newline ends the last line rather than opening an empty
+ one after it, and the empty text has no lines at all.)
+a list called 'a few lines' is 'split lines' of "one\ntwo\nthree\n".
+Print the 'a few lines'.
+a list called 'windows lines' is 'split lines' of "one\r\ntwo\r\n".
+Print the 'windows lines'.
+a list called 'no lines at all' is 'split lines' of "".
+Print 'no lines at all''s size.
+
+(replace changes every occurrence of needle at once, scanning left to
+ right so a match already used cannot be reused by the next one. A
+ needle that is not there, or that is empty, leaves the text exactly as
+ it was.)
+a text called 'every an replaced' is replace of "banana" and "an" and "X".
+Print "[{'every an replaced'}]".
+a text called 'matches do not overlap' is replace of "aaaa" and "aa" and "b".
+Print "[{'matches do not overlap'}]".
+a text called 'a needle not present' is replace of "hello" and "z" and "X".
+Print "[{'a needle not present'}]".
+a text called 'an empty needle' is replace of "hello" and "" and "X".
+Print "[{'an empty needle'}]".
+
 (join puts the separator between each pair of items and never on the ends,
  so one item comes back alone and no items come back as nothing.)
 a text called 'a tidy list' is join of words and ", ".
@@ -176,6 +214,13 @@ a text called 'one word alone' is join of 'a single word' and ", ".
 Print "[{'one word alone'}]".
 a text called 'nothing to join' is join of 'no words at all' and ", ".
 Print "[{'nothing to join'}]".
+
+(join is the inverse of 'split on': splitting a text on a separator and
+ joining the fields back with the same separator returns the text you
+ started with, empty fields included.)
+a list called 'split for the round trip' is 'split on' of "a,,b," and ",".
+a text called 'joined back together' is join of 'split for the round trip' and ",".
+Print "[{'joined back together'}]".
 
 (Every export returns an ordinary text or list, so they compose.)
 For each word from words, print "<{word}>".
