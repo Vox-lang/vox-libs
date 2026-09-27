@@ -31,9 +31,21 @@ object in `/usr/lib64/`, where `ldconfig` can index them.
 | **textkit** | Substring, search, trim, case, and tokenizing — on whitespace, on a separator, or into lines — the byte loops every Vox author would otherwise hand-roll. |
 | **process** | Decodes a raw wait status into an exit code or terminating signal, the way `<sys/wait.h>` does for C. |
 | **json** | Full JSON serialisation and deserialisation — `'to json'` and `'from json'`, the pair Python spells `dumps` and `loads`. |
+| **date** | Calendar arithmetic under UTC: civil time to a moment and back, moving around the calendar, writing a moment out in any of GNU `date`'s layouts, and reading one back in from the forms `date -d` accepts. |
 
 Each library carries its own version and moves on its own clock; the
 compiler's version does not drag them along.
+
+**date's moment.** A moment is a `number`: whole seconds since 1970-01-01
+00:00:00 UTC, the same number `now's unix` hands out and the same number
+GNU `date` prints for `%s`. Moments before 1970 are negative and work
+throughout — the calendar is proleptic Gregorian, as GNU's is. Two
+departures from GNU are deliberate: `'months later'` and `'years later'`
+clamp the day of month to the target month (31 January plus one month is
+28 or 29 February) rather than overflowing into the month after, which is
+what GNU's own `date -d '+1 month'` does; and there is no time zone but
+UTC — a parsed offset is honoured on the way in, but every write is UTC,
+with `%z` always `+0000` and `%Z` always `UTC`.
 
 ## Building and installing
 

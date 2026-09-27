@@ -1,0 +1,48 @@
+--- now ---
+'the moment now' is a number of seconds since 1970, and the year it names has reached 2026: 1
+--- civil time to a moment ---
+'the moment of' 2026-07-29 is the number 1785283200
+'the moment at' 2026-07-29 16:02:48 is 1785340968
+day 32 of january normalises to 1 february: 1
+--- a moment to its parts ---
+year 2026, month 7, day 29
+hour 16, minute 2, second 48
+weekday 3 (1 Monday .. 7 Sunday), day of year 210
+iso week 31 of iso year 2026
+quarter 3, century 20
+--- names ---
+month 7 is July, or Jul for short
+weekday 3 is Wednesday, or Wed for short
+a month outside 1..12 has no name: []
+--- calendar facts ---
+2024 is a leap year: 1, and 2023 is: 0
+february 2024 has 29 days; february 2023 has 28
+29 february 2024 is a valid date: 1, 29 february 2023 is: 0
+24:00:00 is a valid time: 0
+--- moving around the calendar ---
+a week later: 2026-08-05
+31 january plus one month clamps to: 2026-02-28
+start of the day: 2026-07-29 00:00:00
+start of the week (monday on or before): 2026-07-27
+the next monday on or after: 2026-08-03
+days between new year and this moment: 209
+--- writing a moment out ---
+any layout: Wednesday, 29 July 2026 at 16:02
+'the date of': 2026-07-29
+'the date and time of': 2026-07-29T16:02:48+00:00
+'the rfc 3339 date and time of': 2026-07-29 16:02:48+00:00
+'the rfc email date of': Wed, 29 Jul 2026 16:02:48 +0000
+'the moment in words of': Wed Jul 29 16:02:48 UTC 2026
+--- reading a moment in ---
+'2026-07-29' reads as 2026-07-29
+'20260729T160248' reads as 2026-07-29 16:02:48
+'29 July 2026' reads as 2026-07-29
+'2026-02-30' does not exist, and reads as a moment: 0
+garbage reads as a moment: 0, and reading it anyway gives: 0
+--- relative descriptions ---
+the base moment is Sunday 2026-09-27
+'3 weeks ago' from there is 2026-09-06
+'next wednesday' from there is 2026-09-30
+'2026-01-01 + 7 days' is 2026-01-08, ignoring the base entirely since it names its own absolute moment
+'next wednesday' reads as a description: 1
+garbage reads as a description: 0
