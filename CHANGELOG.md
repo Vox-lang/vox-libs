@@ -7,7 +7,7 @@ the collection as a package; each library also carries its own `Library
 <name> version "x.y".` declaration, which is what a consumer's
 `see ... version ... from` matches against.
 
-## [0.3.0] - unreleased
+## [0.3.0] - 2026-09-27
 
 ### Added
 
