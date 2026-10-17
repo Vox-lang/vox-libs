@@ -7,6 +7,12 @@ the collection as a package; each library also carries its own `Library
 <name> version "x.y".` declaration, which is what a consumer's
 `see ... version ... from` matches against.
 
+## [Unreleased]
+
+### Fixed
+
+- **json** compiles again on Vox 0.4.16, which refuses to cast a text literal that is not a number; the helper that raises the error flag now casts a text variable instead, so malformed input is still caught by `On error`.
+
 ## [0.3.0] - 2026-09-27
 
 ### Added

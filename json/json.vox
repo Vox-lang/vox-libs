@@ -101,11 +101,14 @@ Library json version "0.1".
 
 (Raising the error flag is something Vox gives an operation, not a
  statement, so the library performs the one operation whose only job here
- is to fail: reading a number out of text that is not a number. It has to
- be the last thing done before returning, because the next arithmetic or
+ is to fail: reading a number out of text that is not a number. The text
+ sits in a variable because the compiler refuses a literal that is not a
+ number, and only text known at run time raises the flag. It has to be the
+ last thing done before returning, because the next arithmetic or
  collection read clears the flag again.)
 To 'raise the error flag'.
-  a number called 'a number this plainly is not' is "malformed" as a number.
+  a text called 'text that is not a number' is "malformed".
+  a number called 'a number this plainly is not' is 'text that is not a number' as a number.
 
 (One byte onto the end of a buffer. Writing one past the end is what grows
  a dynamic buffer, so this needs no scratch of its own.)
