@@ -1,5 +1,5 @@
 Name:           vox-libs
-Version:        0.3.0
+Version:        0.3.1
 Release:        1%{?dist}
 Summary:        Shared libraries for the Vox programming language
 
@@ -64,6 +64,9 @@ make install VOX=vox DESTDIR=%{buildroot} PREFIX=/usr \
 %{_libdir}/lib*.so
 
 %changelog
+* Sat Oct 17 2026 TheJostler <josj@tegosec.com> - 0.3.1-1
+- json compiles again on Vox 0.4.16
+
 * Sun Sep 27 2026 TheJostler <josj@tegosec.com> - 0.3.0-1
 - Add the date library: calendar arithmetic under UTC with GNU date's layouts
 - textkit 0.2: 'split on', 'split lines' and replace
